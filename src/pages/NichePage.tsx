@@ -6,7 +6,7 @@ import {
   createEmptyIdea,
   evaluateIdea,
   hardDeleteIdeas,
-  saveIdeas,
+  saveIdeaSnapshots,
   updateIdea,
 } from '../services/ideas'
 import { PriorityBadge, StatusBadge } from '../components/Badges'
@@ -16,7 +16,7 @@ import { PRIORITY_OPTIONS, STATUS_OPTIONS, type Idea, type Priority, type Status
 
 export function NichePage() {
   const { nicheId } = useParams<{ nicheId: string }>()
-  const { catalog, ideas, refetchIdeas } = useAppData()
+  const { catalog, ideas, savedIdeas, refetchIdeas, refetchSavedIdeas } = useAppData()
   const { showToast } = useToast()
 
   const niche = catalog.niches.find((n) => n.id === nicheId)
@@ -25,6 +25,11 @@ export function NichePage() {
   const nicheIdeas = useMemo(
     () => ideas.filter((i) => i.niche_id === nicheId && i.status !== 'Đã loại bỏ'),
     [ideas, nicheId]
+  )
+
+  const savedSourceIds = useMemo(
+    () => new Set(savedIdeas.map((idea) => idea.source_idea_id).filter(Boolean)),
+    [savedIdeas]
   )
 
   const [search, setSearch] = useState('')
@@ -67,20 +72,6 @@ export function NichePage() {
     }
   }
 
-  async function handleSaveOne(idea: Idea) {
-    if (!idea.name.trim()) {
-      showToast('Vui lòng nhập tên idea trước khi lưu', 'error')
-      return
-    }
-    try {
-      await saveIdeas([idea.id])
-      await refetchIdeas()
-      showToast('Đã lưu idea', 'success')
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Không thể lưu idea', 'error')
-    }
-  }
-
   async function handleSaveSelected() {
     const rows = filtered.filter((i) => selected.has(i.id))
     const missingName = rows.some((r) => !r.name.trim())
@@ -89,10 +80,10 @@ export function NichePage() {
       return
     }
     try {
-      await saveIdeas(rows.map((r) => r.id))
-      await refetchIdeas()
+      await saveIdeaSnapshots(rows, catalog)
+      await refetchSavedIdeas()
       setSelected(new Set())
-      showToast(`Đã lưu ${rows.length} idea`, 'success')
+      showToast(`Đã lưu vĩnh viễn ${rows.length} idea vào tab Idea đã lưu`, 'success')
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Không thể lưu các idea đã chọn', 'error')
     }
@@ -104,7 +95,7 @@ export function NichePage() {
       await hardDeleteIdeas(Array.from(selected))
       await refetchIdeas()
       setSelected(new Set())
-      showToast('Đã xóa idea', 'success')
+      showToast('Đã dọn idea khỏi niche; các bản đã lưu vẫn được giữ nguyên', 'success')
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Không thể xóa idea', 'error')
     }
@@ -164,7 +155,7 @@ export function NichePage() {
           disabled={selected.size === 0}
           className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
         >
-          Xóa các idea đã chọn
+          Dọn các idea đã chọn
         </button>
 
         <input
@@ -211,7 +202,7 @@ export function NichePage() {
       </div>
 
       <div className="table-scroll flex-1 overflow-auto px-6 py-4">
-        <table className="idea-grid-table min-w-[1700px] border-separate border-spacing-0 text-sm">
+        <table className="idea-grid-table min-w-[1500px] border-separate border-spacing-0 text-sm">
           <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
             <tr>
               <th className="sticky top-0 w-10 border-b border-slate-200 bg-slate-100 px-2 py-2">
@@ -228,8 +219,6 @@ export function NichePage() {
               <th className="sticky top-0 min-w-[140px] border-b border-slate-200 bg-slate-100 px-2 py-2">Người phụ trách</th>
               <th className="sticky top-0 min-w-[220px] border-b border-slate-200 bg-slate-100 px-2 py-2">Đánh giá</th>
               <th className="sticky top-0 min-w-[180px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ghi chú</th>
-              <th className="sticky top-0 min-w-[100px] border-b border-slate-200 bg-slate-100 px-2 py-2">Lưu idea</th>
-              <th className="sticky top-0 min-w-[70px] border-b border-slate-200 bg-slate-100 px-2 py-2">Xóa</th>
             </tr>
           </thead>
           <tbody>
@@ -240,7 +229,7 @@ export function NichePage() {
                 </td>
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
                   <TextCell value={idea.name} required onCommit={(v) => commit(idea.id, { name: v })} placeholder="Tên idea..." />
-                  <div className="px-2 text-[11px] text-slate-400">{idea.is_saved ? '✅ Đã lưu' : 'Chưa lưu'}</div>
+                  <div className="px-2 text-[11px] text-slate-400">{savedSourceIds.has(idea.id) ? '✅ Đã lưu vĩnh viễn' : 'Chưa lưu'}</div>
                 </td>
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
                   <SelectCell
@@ -320,31 +309,11 @@ export function NichePage() {
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
                   <TextAreaCell value={idea.notes ?? ''} onCommit={(v) => commit(idea.id, { notes: v })} />
                 </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <button
-                    onClick={() => handleSaveOne(idea)}
-                    disabled={idea.is_saved}
-                    className="rounded-md bg-slate-700 px-2 py-1 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-40"
-                  >
-                    {idea.is_saved ? 'Đã lưu' : 'Lưu idea'}
-                  </button>
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <button
-                    onClick={() => {
-                      setSelected(new Set([idea.id]))
-                      setConfirmDeleteOpen(true)
-                    }}
-                    className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                  >
-                    Xóa
-                  </button>
-                </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={14} className="px-4 py-8 text-center text-sm text-slate-400">
+                <td colSpan={12} className="px-4 py-8 text-center text-sm text-slate-400">
                   Chưa có idea nào. Bấm "Thêm idea" để bắt đầu.
                 </td>
               </tr>
@@ -355,9 +324,9 @@ export function NichePage() {
 
       <ConfirmDialog
         open={confirmDeleteOpen}
-        title="Xóa idea đã chọn?"
-        message={`Bạn sắp xóa vĩnh viễn ${selected.size} idea. Hành động này không thể hoàn tác.`}
-        confirmLabel="Xóa vĩnh viễn"
+        title="Dọn idea khỏi niche?"
+        message={`Bạn sắp dọn ${selected.size} idea khỏi niche. Bản đã lưu trong tab Idea đã lưu vẫn được giữ nguyên.`}
+        confirmLabel="Dọn khỏi niche"
         danger
         onConfirm={handleDeleteSelected}
         onCancel={() => setConfirmDeleteOpen(false)}

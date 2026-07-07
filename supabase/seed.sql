@@ -4,6 +4,7 @@
 -- Safe to re-run: it clears existing rows in these tables first.
 -- ============================================================
 
+truncate table saved_ideas cascade;
 truncate table ideas cascade;
 truncate table sub_niches cascade;
 truncate table niches cascade;
@@ -118,3 +119,24 @@ join assignees a on a.name = v.assignee_name;
 -- fix the one "removed" sample idea to have status Đã loại bỏ, matching its evaluation
 update ideas set status = 'Đã loại bỏ', deleted_at = now()
 where name = 'Fishing Rod Holder';
+
+
+-- ------------------------------------------------------------
+-- Copy các idea mẫu đã lưu sang bảng saved_ideas độc lập
+-- ------------------------------------------------------------
+insert into saved_ideas (
+  source_idea_id, name, niche_id, niche_name, sub_niche_id, sub_niche_name,
+  product_type_id, product_type_name, product_url, target_customer, priority,
+  status, assignee_id, assignee_name, evaluation, notes, saved_at
+)
+select
+  i.id, i.name, i.niche_id, n.name, i.sub_niche_id, sn.name,
+  i.product_type_id, pt.name, i.product_url, i.target_customer, i.priority,
+  i.status, i.assignee_id, a.name, i.evaluation, i.notes, coalesce(i.saved_at, now())
+from ideas i
+left join niches n on n.id = i.niche_id
+left join sub_niches sn on sn.id = i.sub_niche_id
+left join product_types pt on pt.id = i.product_type_id
+left join assignees a on a.id = i.assignee_id
+where i.is_saved = true
+on conflict (source_idea_id) do nothing;

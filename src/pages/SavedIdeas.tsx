@@ -1,11 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useAppData } from '../hooks/useAppData'
 import { useToast } from '../hooks/useToast'
-import { hardDeleteIdeas, unsaveIdeas, updateIdea } from '../services/ideas'
+import { deleteSavedIdeas, updateSavedIdea } from '../services/ideas'
 import { EvaluationBadge, PriorityBadge, StatusBadge } from '../components/Badges'
 import { SelectCell, TextAreaCell, TextCell, UrlCell } from '../components/cells'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { PRIORITY_OPTIONS, STATUS_OPTIONS, type Idea, type Priority, type Status } from '../types'
+import {
+  PRIORITY_OPTIONS,
+  STATUS_OPTIONS,
+  type Priority,
+  type SavedIdea,
+  type Status,
+} from '../types'
 
 function toCsvValue(v: string | null | undefined) {
   const s = (v ?? '').replace(/"/g, '""')
@@ -13,10 +19,8 @@ function toCsvValue(v: string | null | undefined) {
 }
 
 export function SavedIdeas() {
-  const { catalog, ideas, refetchIdeas } = useAppData()
+  const { catalog, savedIdeas, refetchSavedIdeas } = useAppData()
   const { showToast } = useToast()
-
-  const saved = useMemo(() => ideas.filter((i) => i.is_saved), [ideas])
 
   const [search, setSearch] = useState('')
   const [nicheFilter, setNicheFilter] = useState('')
@@ -29,22 +33,22 @@ export function SavedIdeas() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
-  const filtered = saved.filter((i) => {
-    if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false
-    if (nicheFilter && i.niche_id !== nicheFilter) return false
-    if (subNicheFilter && i.sub_niche_id !== subNicheFilter) return false
-    if (productTypeFilter && i.product_type_id !== productTypeFilter) return false
-    if (priorityFilter && i.priority !== priorityFilter) return false
-    if (statusFilter && i.status !== statusFilter) return false
-    if (assigneeFilter && i.assignee_id !== assigneeFilter) return false
-    if (evalFilter && i.evaluation !== evalFilter) return false
+  const filtered = savedIdeas.filter((idea) => {
+    if (search && !idea.name.toLowerCase().includes(search.toLowerCase())) return false
+    if (nicheFilter && idea.niche_id !== nicheFilter) return false
+    if (subNicheFilter && idea.sub_niche_id !== subNicheFilter) return false
+    if (productTypeFilter && idea.product_type_id !== productTypeFilter) return false
+    if (priorityFilter && idea.priority !== priorityFilter) return false
+    if (statusFilter && idea.status !== statusFilter) return false
+    if (assigneeFilter && idea.assignee_id !== assigneeFilter) return false
+    if (evalFilter && idea.evaluation !== evalFilter) return false
     return true
   })
 
-  async function commit(id: string, patch: Partial<Idea>) {
+  async function commit(id: string, patch: Partial<SavedIdea>) {
     try {
-      await updateIdea(id, patch)
-      await refetchIdeas()
+      await updateSavedIdea(id, patch)
+      await refetchSavedIdeas()
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Có lỗi khi lưu thay đổi', 'error')
     }
@@ -58,55 +62,54 @@ export function SavedIdeas() {
       return next
     })
   }
+
   function toggleSelectAll() {
     if (selected.size === filtered.length) setSelected(new Set())
-    else setSelected(new Set(filtered.map((i) => i.id)))
-  }
-
-  async function handleUnsaveSelected() {
-    try {
-      await unsaveIdeas(Array.from(selected))
-      await refetchIdeas()
-      setSelected(new Set())
-      showToast('Đã bỏ lưu idea', 'success')
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Không thể bỏ lưu idea', 'error')
-    }
+    else setSelected(new Set(filtered.map((idea) => idea.id)))
   }
 
   async function handleDeleteSelected() {
     setConfirmDeleteOpen(false)
     try {
-      await hardDeleteIdeas(Array.from(selected))
-      await refetchIdeas()
+      await deleteSavedIdeas(Array.from(selected))
+      await refetchSavedIdeas()
       setSelected(new Set())
-      showToast('Đã xóa idea', 'success')
+      showToast('Đã xóa bản lưu vĩnh viễn', 'success')
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Không thể xóa idea', 'error')
+      showToast(e instanceof Error ? e.message : 'Không thể xóa idea đã lưu', 'error')
     }
   }
 
   function handleExportCsv() {
     const headers = [
-      'Tên idea', 'Niche chính', 'Niche con', 'Loại sản phẩm', 'Link sản phẩm',
-      'Đối tượng khách hàng', 'Mức độ ưu tiên', 'Trạng thái', 'Người phụ trách',
-      'Đánh giá', 'Ghi chú', 'Ngày lưu',
+      'Tên idea',
+      'Niche chính',
+      'Niche con',
+      'Loại sản phẩm',
+      'Link sản phẩm',
+      'Đối tượng khách hàng',
+      'Mức độ ưu tiên',
+      'Trạng thái',
+      'Người phụ trách',
+      'Đánh giá',
+      'Ghi chú',
+      'Ngày lưu',
     ]
-    const rows = filtered.map((i) => [
-      i.name,
-      catalog.niches.find((n) => n.id === i.niche_id)?.name ?? '',
-      catalog.subNiches.find((s) => s.id === i.sub_niche_id)?.name ?? '',
-      catalog.productTypes.find((p) => p.id === i.product_type_id)?.name ?? '',
-      i.product_url ?? '',
-      i.target_customer ?? '',
-      i.priority,
-      i.status,
-      catalog.assignees.find((a) => a.id === i.assignee_id)?.name ?? '',
-      i.evaluation ?? '',
-      i.notes ?? '',
-      i.saved_at ? new Date(i.saved_at).toLocaleDateString('vi-VN') : '',
+    const rows = filtered.map((idea) => [
+      idea.name,
+      idea.niche_name ?? '',
+      idea.sub_niche_name ?? '',
+      idea.product_type_name ?? '',
+      idea.product_url ?? '',
+      idea.target_customer ?? '',
+      idea.priority,
+      idea.status,
+      idea.assignee_name ?? '',
+      idea.evaluation ?? '',
+      idea.notes ?? '',
+      new Date(idea.saved_at).toLocaleDateString('vi-VN'),
     ])
-    const csv = [headers, ...rows].map((r) => r.map(toCsvValue).join(',')).join('\n')
+    const csv = [headers, ...rows].map((row) => row.map(toCsvValue).join(',')).join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -121,23 +124,18 @@ export function SavedIdeas() {
     <div className="flex h-full flex-col">
       <header className="border-b border-slate-200 bg-white px-6 py-4">
         <h1 className="text-lg font-semibold text-slate-900">Idea đã lưu</h1>
-        <p className="text-sm text-slate-500">{filtered.length} idea hiển thị / {saved.length} tổng</p>
+        <p className="text-sm text-slate-500">
+          {filtered.length} idea hiển thị / {savedIdeas.length} tổng · Bản lưu độc lập, không bị mất khi dọn idea ở niche.
+        </p>
       </header>
 
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-6 py-3">
-        <button
-          onClick={handleUnsaveSelected}
-          disabled={selected.size === 0}
-          className="rounded-md bg-slate-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40"
-        >
-          Bỏ lưu idea ({selected.size})
-        </button>
         <button
           onClick={() => setConfirmDeleteOpen(true)}
           disabled={selected.size === 0}
           className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
         >
-          Xóa idea
+          Xóa idea đã lưu ({selected.size})
         </button>
         <button
           onClick={handleExportCsv}
@@ -156,27 +154,27 @@ export function SavedIdeas() {
       <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-white px-6 py-2">
         <select value={nicheFilter} onChange={(e) => setNicheFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả niche</option>
-          {catalog.niches.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+          {catalog.niches.map((niche) => <option key={niche.id} value={niche.id}>{niche.name}</option>)}
         </select>
         <select value={subNicheFilter} onChange={(e) => setSubNicheFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả niche con</option>
-          {catalog.subNiches.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          {catalog.subNiches.map((subNiche) => <option key={subNiche.id} value={subNiche.id}>{subNiche.name}</option>)}
         </select>
         <select value={productTypeFilter} onChange={(e) => setProductTypeFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả loại sản phẩm</option>
-          {catalog.productTypes.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {catalog.productTypes.map((productType) => <option key={productType.id} value={productType.id}>{productType.name}</option>)}
         </select>
         <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả mức ưu tiên</option>
-          {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+          {PRIORITY_OPTIONS.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả trạng thái</option>
-          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+          {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
         </select>
         <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả người phụ trách</option>
-          {catalog.assignees.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          {catalog.assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}</option>)}
         </select>
         <select value={evalFilter} onChange={(e) => setEvalFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả đánh giá</option>
@@ -187,7 +185,7 @@ export function SavedIdeas() {
       </div>
 
       <div className="table-scroll flex-1 overflow-auto px-6 py-4">
-        <table className="min-w-[1650px] border-separate border-spacing-0 text-sm">
+        <table className="idea-grid-table min-w-[1650px] border-separate border-spacing-0 text-sm">
           <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
             <tr>
               <th className="sticky top-0 w-10 border-b border-slate-200 bg-slate-100 px-2 py-2">
@@ -214,50 +212,38 @@ export function SavedIdeas() {
                   <input type="checkbox" checked={selected.has(idea.id)} onChange={() => toggleSelect(idea.id)} />
                 </td>
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <TextCell value={idea.name} required onCommit={(v) => commit(idea.id, { name: v })} />
+                  <TextCell value={idea.name} required onCommit={(value) => commit(idea.id, { name: value })} />
                 </td>
-                <td className="border-b border-slate-100 px-2 py-2 align-top text-xs text-slate-600">
-                  {catalog.niches.find((n) => n.id === idea.niche_id)?.name ?? '—'}
-                </td>
-                <td className="border-b border-slate-100 px-2 py-2 align-top text-xs text-slate-600">
-                  {catalog.subNiches.find((s) => s.id === idea.sub_niche_id)?.name ?? '—'}
-                </td>
-                <td className="border-b border-slate-100 px-2 py-2 align-top text-xs text-slate-600">
-                  {catalog.productTypes.find((p) => p.id === idea.product_type_id)?.name ?? '—'}
+                <td className="border-b border-slate-100 px-2 py-2 align-top text-xs text-slate-600">{idea.niche_name || '—'}</td>
+                <td className="border-b border-slate-100 px-2 py-2 align-top text-xs text-slate-600">{idea.sub_niche_name || '—'}</td>
+                <td className="border-b border-slate-100 px-2 py-2 align-top text-xs text-slate-600">{idea.product_type_name || '—'}</td>
+                <td className="border-b border-slate-100 px-1 py-1 align-top">
+                  <UrlCell value={idea.product_url ?? ''} onCommit={(value) => commit(idea.id, { product_url: value })} />
                 </td>
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <UrlCell value={idea.product_url ?? ''} onCommit={(v) => commit(idea.id, { product_url: v })} />
+                  <TextCell value={idea.target_customer ?? ''} onCommit={(value) => commit(idea.id, { target_customer: value })} />
                 </td>
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <TextCell value={idea.target_customer ?? ''} onCommit={(v) => commit(idea.id, { target_customer: v })} />
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <SelectCell value={idea.priority} options={PRIORITY_OPTIONS} onCommit={(v: Priority) => commit(idea.id, { priority: v })} />
+                  <SelectCell value={idea.priority} options={PRIORITY_OPTIONS} onCommit={(value: Priority) => commit(idea.id, { priority: value })} />
                   <div className="px-2 py-0.5"><PriorityBadge value={idea.priority} /></div>
                 </td>
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <SelectCell value={idea.status} options={STATUS_OPTIONS} onCommit={(v: Status) => commit(idea.id, { status: v })} />
+                  <SelectCell value={idea.status} options={STATUS_OPTIONS} onCommit={(value: Status) => commit(idea.id, { status: value })} />
                   <div className="px-2 py-0.5"><StatusBadge value={idea.status} /></div>
                 </td>
-                <td className="border-b border-slate-100 px-2 py-2 align-top text-xs text-slate-600">
-                  {catalog.assignees.find((a) => a.id === idea.assignee_id)?.name ?? '—'}
-                </td>
-                <td className="border-b border-slate-100 px-2 py-2 align-top">
-                  <EvaluationBadge value={idea.evaluation} />
-                </td>
+                <td className="border-b border-slate-100 px-2 py-2 align-top text-xs text-slate-600">{idea.assignee_name || '—'}</td>
+                <td className="border-b border-slate-100 px-2 py-2 align-top"><EvaluationBadge value={idea.evaluation} /></td>
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <TextAreaCell value={idea.notes ?? ''} onCommit={(v) => commit(idea.id, { notes: v })} />
+                  <TextAreaCell value={idea.notes ?? ''} onCommit={(value) => commit(idea.id, { notes: value })} />
                 </td>
                 <td className="border-b border-slate-100 px-2 py-2 align-top text-xs text-slate-500">
-                  {idea.saved_at ? new Date(idea.saved_at).toLocaleDateString('vi-VN') : '—'}
+                  {new Date(idea.saved_at).toLocaleDateString('vi-VN')}
                 </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={13} className="px-4 py-8 text-center text-sm text-slate-400">
-                  Chưa có idea nào được lưu.
-                </td>
+                <td colSpan={13} className="px-4 py-8 text-center text-sm text-slate-400">Chưa có idea nào được lưu.</td>
               </tr>
             )}
           </tbody>
@@ -266,9 +252,9 @@ export function SavedIdeas() {
 
       <ConfirmDialog
         open={confirmDeleteOpen}
-        title="Xóa idea đã chọn?"
-        message={`Bạn sắp xóa vĩnh viễn ${selected.size} idea. Hành động này không thể hoàn tác.`}
-        confirmLabel="Xóa vĩnh viễn"
+        title="Xóa idea đã lưu?"
+        message={`Bạn sắp xóa vĩnh viễn ${selected.size} bản lưu. Hành động này không ảnh hưởng tới idea gốc trong niche nhưng không thể hoàn tác.`}
+        confirmLabel="Xóa bản lưu"
         danger
         onConfirm={handleDeleteSelected}
         onCancel={() => setConfirmDeleteOpen(false)}

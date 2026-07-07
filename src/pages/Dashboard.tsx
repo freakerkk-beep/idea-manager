@@ -19,45 +19,48 @@ function StatCard({ label, value, onClick }: { label: string; value: number; onC
 }
 
 export function Dashboard() {
-  const { catalog, ideas } = useAppData()
+  const { catalog, ideas, savedIdeas } = useAppData()
   const navigate = useNavigate()
 
-  const live = ideas.filter((i) => i.status !== 'Đã loại bỏ')
+  const live = ideas.filter((idea) => idea.status !== 'Đã loại bỏ')
+  const savedSourceIds = useMemo(
+    () => new Set(savedIdeas.map((idea) => idea.source_idea_id).filter(Boolean)),
+    [savedIdeas]
+  )
 
   const stats = useMemo(() => {
     return {
       total: ideas.length,
-      saved: ideas.filter((i) => i.is_saved).length,
-      ok: live.filter((i) => i.evaluation === 'Oke').length,
-      normal: live.filter((i) => i.evaluation === 'Bình thường').length,
-      researching: live.filter((i) => i.status === 'Đang nghiên cứu').length,
-      rd: live.filter((i) => i.status === 'Đã chọn R&D').length,
-      prototype: live.filter((i) => i.status === 'Đang prototype').length,
-      approved: live.filter((i) => i.status === 'Đã duyệt').length,
-      removed: ideas.filter((i) => i.status === 'Đã loại bỏ').length,
-      unassigned: live.filter((i) => !i.assignee_id).length,
-      highPriority: live.filter((i) => i.priority === 'Cao').length,
+      saved: savedIdeas.length,
+      ok: live.filter((idea) => idea.evaluation === 'Oke').length,
+      normal: live.filter((idea) => idea.evaluation === 'Bình thường').length,
+      researching: live.filter((idea) => idea.status === 'Đang nghiên cứu').length,
+      rd: live.filter((idea) => idea.status === 'Đã chọn R&D').length,
+      prototype: live.filter((idea) => idea.status === 'Đang prototype').length,
+      approved: live.filter((idea) => idea.status === 'Đã duyệt').length,
+      removed: ideas.filter((idea) => idea.status === 'Đã loại bỏ').length,
+      unassigned: live.filter((idea) => !idea.assignee_id).length,
+      highPriority: live.filter((idea) => idea.priority === 'Cao').length,
     }
-  }, [ideas, live])
+  }, [ideas, live, savedIdeas])
 
   const byNiche = catalog.niches
-    .filter((n) => n.is_active)
-    .map((n) => ({ name: n.name, count: live.filter((i) => i.niche_id === n.id).length }))
+    .filter((niche) => niche.is_active)
+    .map((niche) => ({ name: niche.name, count: live.filter((idea) => idea.niche_id === niche.id).length }))
 
-  const byStatus = STATUS_OPTIONS.filter((s) => s !== 'Đã loại bỏ').map((s) => ({
-    status: s,
-    count: live.filter((i) => i.status === s).length,
+  const byStatus = STATUS_OPTIONS.filter((status) => status !== 'Đã loại bỏ').map((status) => ({
+    status,
+    count: live.filter((idea) => idea.status === status).length,
   }))
 
-  const recentSaved = [...ideas]
-    .filter((i) => i.is_saved && i.saved_at)
-    .sort((a, b) => new Date(b.saved_at!).getTime() - new Date(a.saved_at!).getTime())
+  const recentSaved = [...savedIdeas]
+    .sort((a, b) => new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime())
     .slice(0, 10)
 
   const needAttention = {
-    highNoAssignee: live.filter((i) => i.priority === 'Cao' && !i.assignee_id),
-    okNotSaved: live.filter((i) => i.evaluation === 'Oke' && !i.is_saved),
-    savedButNew: ideas.filter((i) => i.is_saved && i.status === 'Idea mới'),
+    highNoAssignee: live.filter((idea) => idea.priority === 'Cao' && !idea.assignee_id),
+    okNotSaved: live.filter((idea) => idea.evaluation === 'Oke' && !savedSourceIds.has(idea.id)),
+    savedButNew: savedIdeas.filter((idea) => idea.status === 'Idea mới'),
   }
 
   return (
@@ -66,7 +69,7 @@ export function Dashboard() {
       <p className="text-sm text-slate-500">Tổng quan tình hình ý tưởng sản phẩm.</p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-        <StatCard label="Tổng số idea" value={stats.total} onClick={() => navigate('/saved')} />
+        <StatCard label="Tổng số idea" value={stats.total} />
         <StatCard label="Idea đã lưu" value={stats.saved} onClick={() => navigate('/saved')} />
         <StatCard label="Đánh giá Oke" value={stats.ok} />
         <StatCard label="Đánh giá Bình thường" value={stats.normal} />
@@ -98,10 +101,10 @@ export function Dashboard() {
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Idea theo trạng thái</h2>
           <ul className="space-y-1.5">
-            {byStatus.map((s) => (
-              <li key={s.status} className="flex items-center justify-between text-sm">
-                <StatusBadge value={s.status} />
-                <span className="font-medium text-slate-700">{s.count}</span>
+            {byStatus.map((item) => (
+              <li key={item.status} className="flex items-center justify-between text-sm">
+                <StatusBadge value={item.status} />
+                <span className="font-medium text-slate-700">{item.count}</span>
               </li>
             ))}
           </ul>
@@ -112,18 +115,17 @@ export function Dashboard() {
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Idea mới được lưu</h2>
           <ul className="divide-y divide-slate-100 text-sm">
-            {recentSaved.map((i) => (
-              <li key={i.id} className="flex items-center justify-between gap-2 py-2">
+            {recentSaved.map((idea) => (
+              <li key={idea.id} className="flex items-center justify-between gap-2 py-2">
                 <div>
-                  <div className="font-medium text-slate-800">{i.name}</div>
+                  <div className="font-medium text-slate-800">{idea.name}</div>
                   <div className="text-xs text-slate-500">
-                    {catalog.niches.find((n) => n.id === i.niche_id)?.name ?? '—'} ·{' '}
-                    {catalog.assignees.find((a) => a.id === i.assignee_id)?.name ?? 'Chưa phân công'}
+                    {idea.niche_name ?? '—'} · {idea.assignee_name ?? 'Chưa phân công'}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <PriorityBadge value={i.priority} />
-                  <StatusBadge value={i.status} />
+                  <PriorityBadge value={idea.priority} />
+                  <StatusBadge value={idea.status} />
                 </div>
               </li>
             ))}
@@ -137,24 +139,24 @@ export function Dashboard() {
             <div>
               <div className="font-medium text-slate-700">Ưu tiên cao, chưa có người phụ trách ({needAttention.highNoAssignee.length})</div>
               <ul className="mt-1 space-y-0.5 text-slate-600">
-                {needAttention.highNoAssignee.slice(0, 5).map((i) => (
-                  <li key={i.id}>• {i.name || '(chưa đặt tên)'}</li>
+                {needAttention.highNoAssignee.slice(0, 5).map((idea) => (
+                  <li key={idea.id}>• {idea.name || '(chưa đặt tên)'}</li>
                 ))}
               </ul>
             </div>
             <div>
               <div className="font-medium text-slate-700">Đánh giá Oke nhưng chưa lưu ({needAttention.okNotSaved.length})</div>
               <ul className="mt-1 space-y-0.5 text-slate-600">
-                {needAttention.okNotSaved.slice(0, 5).map((i) => (
-                  <li key={i.id}>• {i.name || '(chưa đặt tên)'}</li>
+                {needAttention.okNotSaved.slice(0, 5).map((idea) => (
+                  <li key={idea.id}>• {idea.name || '(chưa đặt tên)'}</li>
                 ))}
               </ul>
             </div>
             <div>
-              <div className="font-medium text-slate-700">Đã lưu nhưng vẫn ở "Idea mới" ({needAttention.savedButNew.length})</div>
+              <div className="font-medium text-slate-700">Đã lưu nhưng vẫn ở “Idea mới” ({needAttention.savedButNew.length})</div>
               <ul className="mt-1 space-y-0.5 text-slate-600">
-                {needAttention.savedButNew.slice(0, 5).map((i) => (
-                  <li key={i.id}>• {i.name || '(chưa đặt tên)'}</li>
+                {needAttention.savedButNew.slice(0, 5).map((idea) => (
+                  <li key={idea.id}>• {idea.name || '(chưa đặt tên)'}</li>
                 ))}
               </ul>
             </div>

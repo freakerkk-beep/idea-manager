@@ -68,6 +68,33 @@ export interface Idea {
   deleted_at: string | null
 }
 
+/**
+ * Bản chụp độc lập của một idea đã lưu.
+ * Không có khóa ngoại tới bảng ideas để dữ liệu vẫn còn kể cả khi idea gốc bị xóa.
+ */
+export interface SavedIdea {
+  id: string
+  source_idea_id: string | null
+  name: string
+  niche_id: string | null
+  niche_name: string | null
+  sub_niche_id: string | null
+  sub_niche_name: string | null
+  product_type_id: string | null
+  product_type_name: string | null
+  product_url: string | null
+  target_customer: string | null
+  priority: Priority
+  status: Status
+  assignee_id: string | null
+  assignee_name: string | null
+  evaluation: Evaluation | null
+  notes: string | null
+  saved_at: string
+  created_at: string
+  updated_at: string
+}
+
 export interface CatalogData {
   niches: Niche[]
   subNiches: SubNiche[]

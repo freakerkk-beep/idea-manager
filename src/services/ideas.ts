@@ -1,7 +1,8 @@
 import { supabase } from '../lib/supabase'
-import type { Idea } from '../types'
+import type { CatalogData, Idea, SavedIdea } from '../types'
 
 const IDEA_COLUMNS = '*'
+const SAVED_IDEA_COLUMNS = '*'
 
 export async function fetchAllIdeas(): Promise<Idea[]> {
   const { data, error } = await supabase
@@ -10,6 +11,15 @@ export async function fetchAllIdeas(): Promise<Idea[]> {
     .order('created_at', { ascending: false })
   if (error) throw error
   return data as Idea[]
+}
+
+export async function fetchSavedIdeas(): Promise<SavedIdea[]> {
+  const { data, error } = await supabase
+    .from('saved_ideas')
+    .select(SAVED_IDEA_COLUMNS)
+    .order('saved_at', { ascending: false })
+  if (error) throw error
+  return data as SavedIdea[]
 }
 
 export async function createEmptyIdea(nicheId: string | null): Promise<Idea> {
@@ -28,19 +38,51 @@ export async function updateIdea(id: string, patch: Partial<Idea>): Promise<Idea
   return data as Idea
 }
 
-export async function saveIdeas(ids: string[]): Promise<void> {
-  const { error } = await supabase
-    .from('ideas')
-    .update({ is_saved: true, saved_at: new Date().toISOString() })
-    .in('id', ids)
+export async function updateSavedIdea(id: string, patch: Partial<SavedIdea>): Promise<SavedIdea> {
+  const { data, error } = await supabase
+    .from('saved_ideas')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single()
   if (error) throw error
+  return data as SavedIdea
 }
 
-export async function unsaveIdeas(ids: string[]): Promise<void> {
+/**
+ * Lưu một bản chụp độc lập sang bảng saved_ideas.
+ * Nếu idea đã từng được lưu, thao tác này cập nhật bản chụp bằng dữ liệu mới nhất.
+ */
+export async function saveIdeaSnapshots(
+  rows: Idea[],
+  catalog: CatalogData
+): Promise<void> {
+  if (rows.length === 0) return
+
+  const now = new Date().toISOString()
+  const payload = rows.map((idea) => ({
+    source_idea_id: idea.id,
+    name: idea.name,
+    niche_id: idea.niche_id,
+    niche_name: catalog.niches.find((n) => n.id === idea.niche_id)?.name ?? null,
+    sub_niche_id: idea.sub_niche_id,
+    sub_niche_name: catalog.subNiches.find((s) => s.id === idea.sub_niche_id)?.name ?? null,
+    product_type_id: idea.product_type_id,
+    product_type_name: catalog.productTypes.find((p) => p.id === idea.product_type_id)?.name ?? null,
+    product_url: idea.product_url,
+    target_customer: idea.target_customer,
+    priority: idea.priority,
+    status: idea.status,
+    assignee_id: idea.assignee_id,
+    assignee_name: catalog.assignees.find((a) => a.id === idea.assignee_id)?.name ?? null,
+    evaluation: idea.evaluation,
+    notes: idea.notes,
+    saved_at: now,
+  }))
+
   const { error } = await supabase
-    .from('ideas')
-    .update({ is_saved: false, saved_at: null })
-    .in('id', ids)
+    .from('saved_ideas')
+    .upsert(payload, { onConflict: 'source_idea_id' })
   if (error) throw error
 }
 
@@ -71,6 +113,13 @@ export async function hardDeleteIdea(id: string): Promise<void> {
 }
 
 export async function hardDeleteIdeas(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
   const { error } = await supabase.from('ideas').delete().in('id', ids)
+  if (error) throw error
+}
+
+export async function deleteSavedIdeas(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const { error } = await supabase.from('saved_ideas').delete().in('id', ids)
   if (error) throw error
 }
