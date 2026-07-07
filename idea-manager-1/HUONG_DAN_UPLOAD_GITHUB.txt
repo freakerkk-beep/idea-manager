@@ -1,0 +1,33 @@
+HƯỚNG DẪN ĐƯA PROJECT LÊN GITHUB KHÔNG CẦN CMD
+
+1. Giải nén file ZIP này.
+2. Mở repository GitHub: https://github.com/freakerkk-beep/idea-manager
+3. Bấm "uploading an existing file" trên trang repository trống.
+4. Mở thư mục idea-manager vừa giải nén.
+5. Chọn TOÀN BỘ nội dung bên trong thư mục (src, public, supabase, package.json, ...), rồi kéo thả vào GitHub.
+   Không kéo riêng file ZIP lên vì GitHub không tự giải nén.
+6. Chờ upload xong, nhập Commit message: Initial upload
+7. Bấm "Commit changes".
+
+SAU ĐÓ DEPLOY NETLIFY
+
+1. Vào Netlify > Add new site > Import an existing project.
+2. Chọn GitHub và repository freakerkk-beep/idea-manager.
+3. Build command: npm run build
+4. Publish directory: dist
+5. Thêm 3 Environment variables:
+   - VITE_SUPABASE_URL = Project URL trong Supabase > Integrations > Data API
+   - VITE_SUPABASE_PUBLISHABLE_KEY = key sb_publishable_... trong Supabase > Settings > API Keys
+   - APP_PASSWORD = mật khẩu bạn muốn dùng để đăng nhập website
+6. Bấm Deploy.
+
+THIẾT LẬP DATABASE SUPABASE
+
+1. Supabase > SQL Editor > New query.
+2. Mở file supabase/schema.sql, copy toàn bộ, dán vào SQL Editor và bấm Run.
+3. Tạo query mới, mở file supabase/seed.sql, copy toàn bộ, dán và bấm Run.
+
+LƯU Ý
+- Không tải file .env lên GitHub.
+- Không dùng Secret key sb_secret_... trong website hoặc GitHub.
+- Chỉ dùng Publishable key sb_publishable_... cho biến VITE_SUPABASE_PUBLISHABLE_KEY.
