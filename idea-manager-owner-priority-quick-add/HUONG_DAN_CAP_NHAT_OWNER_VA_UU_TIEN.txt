@@ -1,0 +1,29 @@
+BẢN CẬP NHẬT: OWNER + MÀU ƯU TIÊN + XÓA NHANH + THÊM HÀNG NHANH
+
+Đã cập nhật:
+1. Cài đặt danh mục > Owner có nút Xóa.
+   - Khi xóa Owner, các idea đang gán Owner đó sẽ chuyển về chưa có Owner.
+   - Bản trong tab Idea đã lưu vẫn giữ tên Owner cũ.
+2. Xóa toàn bộ phần Đánh giá: Oke / Bình thường / Loại bỏ khỏi giao diện.
+3. Mức độ ưu tiên chỉ còn:
+   - Chưa đánh giá
+   - Cao
+   - Trung bình
+4. Màu hàng:
+   - Cao: xanh pastel trong suốt
+   - Trung bình: vàng pastel trong suốt
+5. Đổi toàn bộ tên hiển thị “Người phụ trách” thành “Owner”.
+6. Cuối mỗi hàng niche có nút Xóa nhanh.
+   - Xóa idea gốc không làm mất bản trong tab Idea đã lưu.
+7. Dưới mỗi hàng có nút “+ Thêm hàng”.
+   - Sau khi bấm, website tự đưa tới và focus hàng mới.
+8. Tab Idea đã lưu và Dashboard cũng đã cập nhật theo hệ thống Owner / ưu tiên mới.
+
+KHÔNG CẦN CHẠY THÊM SQL.
+
+CÁCH CẬP NHẬT:
+- Giải nén ZIP.
+- Upload toàn bộ nội dung BÊN TRONG thư mục lên thư mục gốc GitHub.
+- Commit: Update owner priority and quick row actions
+- Chờ Netlify Published.
+- Hard refresh: Mac Command + Shift + R / Windows Ctrl + Shift + R.

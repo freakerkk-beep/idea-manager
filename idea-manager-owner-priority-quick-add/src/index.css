@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+:root {
+  --color-brand: #2f6f5e;
+  --color-brand-dark: #23543f-9;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background-color: #f6f7f5;
+  color: #1f2937;
+}
+
+/* Simple scrollbar for data tables */
+.table-scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+.table-scroll::-webkit-scrollbar-thumb {
+  background-color: #cbd5c9;
+  border-radius: 6px;
+}
+
+
+/* Hiển thị danh sách idea theo dạng bảng kẻ ô rõ ràng */
+.idea-grid-table {
+  width: max-content;
+  min-width: 100%;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.idea-grid-table th,
+.idea-grid-table td {
+  border-right: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.idea-grid-table th:last-child,
+.idea-grid-table td:last-child {
+  border-right: 0;
+}
+
+.idea-grid-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.idea-grid-table thead th {
+  background-color: #eef2f7;
+  box-shadow: inset 0 -1px 0 #cbd5e1;
+}
+
+.idea-grid-table tbody tr:hover td {
+  background-color: #ecfdf5;
+}
+
+/* Tô màu pastel theo mức độ ưu tiên nhưng vẫn giữ chữ dễ đọc */
+.idea-grid-table tbody tr.priority-row-high td {
+  background-color: rgba(187, 247, 208, 0.42);
+}
+
+.idea-grid-table tbody tr.priority-row-medium td {
+  background-color: rgba(254, 240, 138, 0.42);
+}
+
+.idea-grid-table tbody tr.priority-row-high:hover td {
+  background-color: rgba(187, 247, 208, 0.62);
+}
+
+.idea-grid-table tbody tr.priority-row-medium:hover td {
+  background-color: rgba(254, 240, 138, 0.62);
+}
+
+.idea-grid-table tbody tr.quick-add-row td {
+  background-color: rgba(248, 250, 252, 0.78);
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.idea-grid-table tbody tr.quick-add-row:hover td {
+  background-color: rgba(240, 253, 244, 0.9);
+}

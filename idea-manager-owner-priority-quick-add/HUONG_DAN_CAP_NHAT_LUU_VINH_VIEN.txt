@@ -1,0 +1,31 @@
+HƯỚNG DẪN CẬP NHẬT BẢN LƯU IDEA VĨNH VIỄN
+
+THỨ TỰ BẮT BUỘC:
+
+1. CHẠY SQL TRÊN SUPABASE TRƯỚC
+- Vào Supabase > SQL Editor > New query.
+- Mở file: supabase/migrate_saved_ideas.sql
+- Copy toàn bộ nội dung, dán vào Supabase và bấm Run.
+- Không chạy seed.sql vì seed.sql sẽ xóa dữ liệu hiện tại.
+
+2. UPLOAD CODE LÊN GITHUB
+- Giải nén file ZIP.
+- Vào repository idea-manager > Add file > Upload files.
+- Chọn toàn bộ nội dung BÊN TRONG thư mục đã giải nén.
+- Các file src, package.json, vite.config.ts... phải nằm ở thư mục gốc GitHub.
+- Commit message: Save ideas independently from niche cleanup
+- Bấm Commit changes.
+
+3. CHỜ NETLIFY DEPLOY
+- Vào Netlify > ideamanager > Deploys.
+- Chờ commit mới chuyển sang Published.
+- Mở website và hard refresh:
+  Mac: Command + Shift + R
+  Windows: Ctrl + Shift + R
+
+CÁCH HOẠT ĐỘNG MỚI:
+- Tick checkbox các idea trong niche.
+- Bấm "Lưu các idea đã chọn" để tạo bản lưu độc lập.
+- Sau đó có thể bấm "Dọn các idea đã chọn"; bản trong Idea đã lưu không mất.
+- Tab Idea đã lưu không còn nút Bỏ lưu.
+- Chỉ nút "Xóa idea đã lưu" trong tab Idea đã lưu mới xóa bản lưu.
