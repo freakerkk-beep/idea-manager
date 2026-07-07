@@ -85,6 +85,8 @@ export function UrlCell({ value, onCommit }: { value: string; onCommit: (v: stri
   )
 }
 
+type SelectOption<T extends string> = T | { value: T; label: string }
+
 export function SelectCell<T extends string>({
   value,
   options,
@@ -92,7 +94,7 @@ export function SelectCell<T extends string>({
   placeholder,
 }: {
   value: T | null | ''
-  options: readonly T[] | T[]
+  options: readonly SelectOption<T>[] | SelectOption<T>[]
   onCommit: (v: T) => void
   placeholder?: string
 }) {
@@ -103,11 +105,17 @@ export function SelectCell<T extends string>({
       onChange={(e) => onCommit(e.target.value as T)}
     >
       {placeholder && <option value="">{placeholder}</option>}
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
+      {options.map((option) => {
+        const normalized = typeof option === 'string'
+          ? { value: option, label: option }
+          : option
+
+        return (
+          <option key={normalized.value} value={normalized.value}>
+            {normalized.label}
+          </option>
+        )
+      })}
     </select>
   )
 }
