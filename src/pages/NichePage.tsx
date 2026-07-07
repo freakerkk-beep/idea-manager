@@ -211,7 +211,7 @@ export function NichePage() {
       </div>
 
       <div className="table-scroll flex-1 overflow-auto px-6 py-4">
-        <table className="min-w-[1700px] border-separate border-spacing-0 text-sm">
+        <table className="idea-grid-table min-w-[1700px] border-separate border-spacing-0 text-sm">
           <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
             <tr>
               <th className="sticky top-0 w-10 border-b border-slate-200 bg-slate-100 px-2 py-2">
@@ -245,34 +245,31 @@ export function NichePage() {
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
                   <SelectCell
                     value={idea.niche_id ?? ''}
-                    options={catalog.niches.filter((n) => n.is_active).map((n) => n.id)}
+                    options={catalog.niches
+                      .filter((n) => n.is_active)
+                      .map((n) => ({ value: n.id, label: n.name }))}
                     onCommit={(v) => commit(idea.id, { niche_id: v, sub_niche_id: null })}
                   />
-                  <div className="px-2 text-[11px] text-slate-400">
-                    {catalog.niches.find((n) => n.id === idea.niche_id)?.name ?? ''}
-                  </div>
                 </td>
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
                   <SelectCell
                     value={idea.sub_niche_id ?? ''}
                     placeholder="— Chọn —"
-                    options={catalog.subNiches.filter((s) => s.niche_id === idea.niche_id && s.is_active).map((s) => s.id)}
+                    options={catalog.subNiches
+                      .filter((s) => s.niche_id === idea.niche_id && s.is_active)
+                      .map((s) => ({ value: s.id, label: s.name }))}
                     onCommit={(v) => commit(idea.id, { sub_niche_id: v })}
                   />
-                  <div className="px-2 text-[11px] text-slate-400">
-                    {catalog.subNiches.find((s) => s.id === idea.sub_niche_id)?.name ?? ''}
-                  </div>
                 </td>
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
                   <SelectCell
                     value={idea.product_type_id ?? ''}
                     placeholder="— Chọn —"
-                    options={catalog.productTypes.filter((p) => p.is_active).map((p) => p.id)}
+                    options={catalog.productTypes
+                      .filter((p) => p.is_active)
+                      .map((p) => ({ value: p.id, label: p.name }))}
                     onCommit={(v) => commit(idea.id, { product_type_id: v })}
                   />
-                  <div className="px-2 text-[11px] text-slate-400">
-                    {catalog.productTypes.find((p) => p.id === idea.product_type_id)?.name ?? ''}
-                  </div>
                 </td>
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
                   <UrlCell value={idea.product_url ?? ''} onCommit={(v) => commit(idea.id, { product_url: v })} />
@@ -292,12 +289,11 @@ export function NichePage() {
                   <SelectCell
                     value={idea.assignee_id ?? ''}
                     placeholder="— Chọn —"
-                    options={catalog.assignees.filter((a) => a.is_active).map((a) => a.id)}
+                    options={catalog.assignees
+                      .filter((a) => a.is_active)
+                      .map((a) => ({ value: a.id, label: a.name }))}
                     onCommit={(v) => commit(idea.id, { assignee_id: v })}
                   />
-                  <div className="px-2 text-[11px] text-slate-400">
-                    {catalog.assignees.find((a) => a.id === idea.assignee_id)?.name ?? ''}
-                  </div>
                 </td>
                 <td className="border-b border-slate-100 px-1 py-1 align-top">
                   <div className="flex gap-1">
