@@ -1,0 +1,13 @@
+BẢN SỬA HIỂN THỊ TÊN THAY VÌ UUID
+
+Đã sửa:
+- Niche chính hiển thị tên (ví dụ Army) thay vì mã UUID.
+- Niche con hiển thị tên thay vì mã UUID.
+- Loại sản phẩm hiển thị tên thay vì mã UUID.
+- Người phụ trách hiển thị tên thay vì mã UUID.
+- Bỏ dòng chữ mờ lặp lại bên dưới.
+- Build Netlify đã được kiểm tra thành công.
+
+Hai file thực sự thay đổi:
+- src/components/cells.tsx
+- src/pages/NichePage.tsx

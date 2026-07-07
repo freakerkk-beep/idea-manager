@@ -1,0 +1,15 @@
+BẢN CẬP NHẬT GIAO DIỆN BẢNG KẺ Ô
+
+Đã cập nhật:
+- Phần thêm/quản lý idea hiển thị thành bảng có đường kẻ dọc và ngang rõ ràng.
+- Tiêu đề bảng có nền riêng.
+- Mỗi trường thông tin nằm trong một ô riêng.
+- Áp dụng đồng bộ cho Idea theo niche, Idea đã lưu và Idea đã loại bỏ.
+
+Cách đưa lên GitHub:
+1. Giải nén file ZIP.
+2. Vào repository idea-manager trên GitHub.
+3. Chọn Add file > Upload files.
+4. Kéo toàn bộ nội dung BÊN TRONG thư mục đã giải nén lên GitHub.
+5. Commit với nội dung: Add grid borders to idea tables
+6. Chờ Netlify tự deploy đến khi trạng thái Published.

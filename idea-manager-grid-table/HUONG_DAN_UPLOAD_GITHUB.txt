@@ -1,0 +1,46 @@
+HƯỚNG DẪN UPLOAD BẢN KHÔNG CẦN MẬT KHẨU
+
+Bản này mở thẳng Dashboard, không còn trang đăng nhập, nút đăng xuất,
+Netlify Function login hay biến APP_PASSWORD.
+
+CÁCH DỄ NHẤT: UPLOAD VÀO REPOSITORY HIỆN TẠI
+
+1. Giải nén file ZIP.
+2. Mở repository GitHub: https://github.com/freakerkk-beep/idea-manager
+3. Ở trang Code, bấm Add file > Upload files.
+4. Mở thư mục idea-manager-no-password vừa giải nén.
+5. Chọn TOÀN BỘ nội dung BÊN TRONG thư mục, gồm src, public, supabase,
+   package.json, netlify.toml... rồi kéo thả lên GitHub.
+6. Nhập Commit message: Remove website password
+7. Bấm Commit changes.
+
+LƯU Ý VỀ REPOSITORY CŨ
+
+Repository hiện có thư mục cũ idea-manager-1. Để tránh Netlify build nhầm:
+- Sau khi upload bản mới ở thư mục gốc, Netlify Base directory phải để TRỐNG.
+- Publish directory: dist
+- Build command: npm run build
+- Functions directory: để TRỐNG.
+
+CẤU HÌNH NETLIFY
+
+Chỉ cần 2 Environment variables:
+- VITE_SUPABASE_URL = Project URL trong Supabase > Integrations > Data API
+- VITE_SUPABASE_PUBLISHABLE_KEY = key sb_publishable_... trong Supabase > Settings > API Keys
+
+Xóa biến APP_PASSWORD nếu đã tạo trước đó. Biến này không còn được sử dụng.
+Sau khi GitHub cập nhật, Netlify thường tự deploy. Nếu không, vào Deploys >
+Trigger deploy > Clear cache and deploy site.
+
+THIẾT LẬP DATABASE SUPABASE
+
+Nếu chưa chạy database:
+1. Supabase > SQL Editor > New query.
+2. Copy toàn bộ supabase/schema.sql, dán vào và bấm Run.
+3. Tạo query mới, copy supabase/seed.sql, dán vào và bấm Run.
+
+CẢNH BÁO
+
+Bản này KHÔNG có lớp đăng nhập. Với policy hiện tại trong schema.sql, bất kỳ ai
+có link website đều có thể xem, thêm, sửa hoặc xóa dữ liệu. Không dùng để lưu
+dữ liệu bí mật và không chia sẻ công khai đường link Netlify.
