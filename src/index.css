@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  --color-brand: #2f6f5e;
+  --color-brand-dark: #23543f-9;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background-color: #f6f7f5;
+  color: #1f2937;
+}
+
+/* Simple scrollbar for data tables */
+.table-scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+.table-scroll::-webkit-scrollbar-thumb {
+  background-color: #cbd5c9;
+  border-radius: 6px;
+}
