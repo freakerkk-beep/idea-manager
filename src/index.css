@@ -78,11 +78,10 @@ body {
   background-color: rgba(254, 240, 138, 0.62);
 }
 
-.idea-grid-table tbody tr.quick-add-row td {
-  background-color: rgba(248, 250, 252, 0.78);
-  border-bottom: 1px solid #cbd5e1;
-}
 
-.idea-grid-table tbody tr.quick-add-row:hover td {
-  background-color: rgba(240, 253, 244, 0.9);
+/* Một nút thêm hàng duy nhất, nằm ngoài bảng và luôn ở cuối danh sách */
+.idea-add-footer {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 2px;
 }

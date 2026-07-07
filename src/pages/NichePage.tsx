@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAppData } from '../hooks/useAppData'
 import { useToast } from '../hooks/useToast'
@@ -243,8 +243,7 @@ export function NichePage() {
           </thead>
           <tbody>
             {filtered.map((idea) => (
-              <Fragment key={idea.id}>
-                <tr id={`idea-row-${idea.id}`} className={rowPriorityClass(idea.priority)}>
+              <tr key={idea.id} id={`idea-row-${idea.id}`} className={rowPriorityClass(idea.priority)}>
                   <td className="px-2 py-1 align-top">
                     <input type="checkbox" checked={selected.has(idea.id)} onChange={() => toggleSelect(idea.id)} />
                   </td>
@@ -318,35 +317,20 @@ export function NichePage() {
                     </button>
                   </td>
                 </tr>
-                <tr className="quick-add-row">
-                  <td colSpan={12} className="px-2 py-1 text-center">
-                    <button
-                      onClick={handleAddIdea}
-                      className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-emerald-300 bg-white/70 px-3 text-xs font-medium text-emerald-700 hover:border-emerald-500 hover:bg-emerald-50"
-                      title="Thêm nhanh một hàng idea mới"
-                    >
-                      <span className="text-base leading-none">+</span>
-                      Thêm hàng
-                    </button>
-                  </td>
-                </tr>
-              </Fragment>
             ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={12} className="px-4 py-8 text-center text-sm text-slate-400">
-                  <button
-                    onClick={handleAddIdea}
-                    className="inline-flex items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 font-medium text-white hover:bg-emerald-800"
-                  >
-                    <span className="text-lg leading-none">+</span>
-                    Thêm idea đầu tiên
-                  </button>
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
+
+        <div className="idea-add-footer min-w-[1450px]">
+          <button
+            onClick={handleAddIdea}
+            className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-emerald-300 bg-white px-4 text-xs font-medium text-emerald-700 shadow-sm hover:border-emerald-500 hover:bg-emerald-50"
+            title="Luôn thêm một hàng idea mới ở cuối danh sách"
+          >
+            <span className="text-base leading-none">+</span>
+            {filtered.length === 0 ? 'Thêm idea đầu tiên' : 'Thêm hàng ở cuối'}
+          </button>
+        </div>
       </div>
 
       <ConfirmDialog
