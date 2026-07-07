@@ -6,6 +6,7 @@ import {
   createNiche,
   createProductType,
   createSubNiche,
+  deleteAssignee,
   deleteNiche,
   deleteProductType,
   deleteSubNiche,
@@ -107,11 +108,13 @@ function EditableList({
   )
 }
 
+type DeleteKind = 'niche' | 'sub' | 'product' | 'assignee'
+
 export function Settings() {
   const { catalog, refetchCatalog } = useAppData()
   const { showToast } = useToast()
   const [selectedNicheForSub, setSelectedNicheForSub] = useState<string>(catalog.niches[0]?.id ?? '')
-  const [confirmDelete, setConfirmDelete] = useState<{ kind: 'niche' | 'sub' | 'product'; id: string; name: string } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ kind: DeleteKind; id: string; name: string } | null>(null)
 
   async function guarded(fn: () => Promise<unknown>, successMsg: string) {
     try {
@@ -130,6 +133,7 @@ export function Settings() {
     if (kind === 'niche') await guarded(() => deleteNiche(id), 'Đã xóa niche')
     if (kind === 'sub') await guarded(() => deleteSubNiche(id), 'Đã xóa niche con')
     if (kind === 'product') await guarded(() => deleteProductType(id), 'Đã xóa loại sản phẩm')
+    if (kind === 'assignee') await guarded(() => deleteAssignee(id), 'Đã xóa Owner')
   }
 
   const nicheRows: Row[] = catalog.niches.map((n: Niche) => ({ id: n.id, name: n.name, is_active: n.is_active }))
@@ -139,11 +143,15 @@ export function Settings() {
   const productTypeRows: Row[] = catalog.productTypes.map((p: ProductType) => ({ id: p.id, name: p.name, is_active: p.is_active }))
   const assigneeRows: Row[] = catalog.assignees.map((a: Assignee) => ({ id: a.id, name: a.name, is_active: a.is_active }))
 
+  const deleteMessage = confirmDelete?.kind === 'assignee'
+    ? `Bạn có chắc muốn xóa Owner "${confirmDelete.name}"? Các idea đang gán Owner này sẽ chuyển thành chưa có Owner. Bản đã lưu trước đó vẫn giữ tên Owner cũ.`
+    : `Bạn có chắc muốn xóa "${confirmDelete?.name ?? ''}"? Nếu đang có idea sử dụng, hệ thống sẽ báo lỗi và bạn nên ẩn thay vì xóa.`
+
   return (
     <div className="h-full overflow-y-auto">
       <header className="border-b border-slate-200 bg-white px-6 py-4">
         <h1 className="text-lg font-semibold text-slate-900">Cài đặt danh mục</h1>
-        <p className="text-sm text-slate-500">Quản lý niche, niche con, loại sản phẩm và người phụ trách.</p>
+        <p className="text-sm text-slate-500">Quản lý niche, niche con, loại sản phẩm và Owner của idea.</p>
       </header>
 
       <div className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-2">
@@ -198,8 +206,8 @@ export function Settings() {
           />
         </SectionCard>
 
-        <SectionCard title="Người phụ trách">
-          <AddRow placeholder="Tên người phụ trách mới..." onAdd={(name) => guarded(() => createAssignee(name), 'Đã thêm người phụ trách')} />
+        <SectionCard title="Owner">
+          <AddRow placeholder="Tên Owner mới..." onAdd={(name) => guarded(() => createAssignee(name), 'Đã thêm Owner')} />
           <ul className="mt-3 divide-y divide-slate-100">
             {assigneeRows.map((a) => (
               <li key={a.id} className="flex items-center gap-2 py-2">
@@ -207,7 +215,7 @@ export function Settings() {
                   defaultValue={a.name}
                   onBlur={(e) => {
                     if (e.target.value.trim() && e.target.value !== a.name)
-                      guarded(() => updateAssignee(a.id, { name: e.target.value.trim() }), 'Đã cập nhật')
+                      guarded(() => updateAssignee(a.id, { name: e.target.value.trim() }), 'Đã cập nhật Owner')
                   }}
                   className={
                     'flex-1 rounded-md border border-transparent px-2 py-1 text-sm hover:bg-slate-50 focus:border-emerald-500 focus:bg-white focus:outline-none ' +
@@ -215,22 +223,29 @@ export function Settings() {
                   }
                 />
                 <button
-                  onClick={() => guarded(() => updateAssignee(a.id, { is_active: !a.is_active }), a.is_active ? 'Đã ẩn' : 'Đã hiện')}
+                  onClick={() => guarded(() => updateAssignee(a.id, { is_active: !a.is_active }), a.is_active ? 'Đã ẩn Owner' : 'Đã hiện Owner')}
                   className="rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
                 >
                   {a.is_active ? 'Ẩn' : 'Hiện'}
                 </button>
+                <button
+                  onClick={() => setConfirmDelete({ kind: 'assignee', id: a.id, name: a.name })}
+                  className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                >
+                  Xóa
+                </button>
               </li>
             ))}
+            {assigneeRows.length === 0 && <li className="py-2 text-sm text-slate-400">Chưa có Owner nào.</li>}
           </ul>
-          <p className="mt-2 text-xs text-slate-400">Người phụ trách không dùng tài khoản riêng — chỉ là nhãn để phân công idea.</p>
+          <p className="mt-2 text-xs text-slate-400">Owner là người sở hữu và theo sát idea; đây chỉ là nhãn phân công, không phải tài khoản đăng nhập.</p>
         </SectionCard>
       </div>
 
       <ConfirmDialog
         open={!!confirmDelete}
-        title="Xóa mục này?"
-        message={`Bạn có chắc muốn xóa "${confirmDelete?.name}"? Nếu đang có idea sử dụng, hệ thống sẽ báo lỗi và bạn nên ẩn thay vì xóa.`}
+        title={confirmDelete?.kind === 'assignee' ? 'Xóa Owner?' : 'Xóa mục này?'}
+        message={deleteMessage}
         confirmLabel="Xóa"
         danger
         onConfirm={handleConfirmDelete}

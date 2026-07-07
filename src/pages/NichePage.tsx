@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAppData } from '../hooks/useAppData'
 import { useToast } from '../hooks/useToast'
 import {
   createEmptyIdea,
-  evaluateIdea,
+  hardDeleteIdea,
   hardDeleteIdeas,
   saveIdeaSnapshots,
   updateIdea,
@@ -13,6 +13,12 @@ import { PriorityBadge, StatusBadge } from '../components/Badges'
 import { SelectCell, TextAreaCell, TextCell, UrlCell } from '../components/cells'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { PRIORITY_OPTIONS, STATUS_OPTIONS, type Idea, type Priority, type Status } from '../types'
+
+function rowPriorityClass(priority: Priority) {
+  if (priority === 'Cao') return 'priority-row-high'
+  if (priority === 'Trung bình') return 'priority-row-medium'
+  return ''
+}
 
 export function NichePage() {
   const { nicheId } = useParams<{ nicheId: string }>()
@@ -38,9 +44,9 @@ export function NichePage() {
   const [priorityFilter, setPriorityFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [assigneeFilter, setAssigneeFilter] = useState('')
-  const [evalFilter, setEvalFilter] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [focusIdeaId, setFocusIdeaId] = useState<string | null>(null)
 
   const filtered = nicheIdeas.filter((i) => {
     if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false
@@ -49,15 +55,36 @@ export function NichePage() {
     if (priorityFilter && i.priority !== priorityFilter) return false
     if (statusFilter && i.status !== statusFilter) return false
     if (assigneeFilter && i.assignee_id !== assigneeFilter) return false
-    if (evalFilter && i.evaluation !== evalFilter) return false
     return true
   })
 
+  useEffect(() => {
+    if (!focusIdeaId) return
+    const timer = window.setTimeout(() => {
+      const row = document.getElementById(`idea-row-${focusIdeaId}`)
+      row?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      row?.querySelector<HTMLInputElement>('input:not([type="checkbox"])')?.focus()
+      setFocusIdeaId(null)
+    }, 80)
+    return () => window.clearTimeout(timer)
+  }, [focusIdeaId, filtered])
+
+  function clearFiltersForNewRow() {
+    setSearch('')
+    setSubNicheFilter('')
+    setProductTypeFilter('')
+    setPriorityFilter('')
+    setStatusFilter('')
+    setAssigneeFilter('')
+  }
+
   async function handleAddIdea() {
     try {
-      await createEmptyIdea(nicheId ?? null)
+      clearFiltersForNewRow()
+      const created = await createEmptyIdea(nicheId ?? null)
+      setFocusIdeaId(created.id)
       await refetchIdeas()
-      showToast('Đã thêm idea mới', 'success')
+      showToast('Đã thêm một hàng idea mới', 'success')
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Không thể thêm idea', 'error')
     }
@@ -101,13 +128,18 @@ export function NichePage() {
     }
   }
 
-  async function handleEvaluate(idea: Idea, value: NonNullable<Idea['evaluation']>) {
+  async function handleQuickDelete(id: string) {
     try {
-      await evaluateIdea(idea.id, value)
+      await hardDeleteIdea(id)
+      setSelected((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
       await refetchIdeas()
-      showToast(value === 'Loại bỏ' ? 'Đã chuyển idea vào mục Đã loại bỏ' : `Đã đánh giá: ${value}`, 'success')
+      showToast('Đã xóa nhanh idea khỏi niche; bản đã lưu vẫn được giữ nguyên', 'success')
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Không thể đánh giá idea', 'error')
+      showToast(e instanceof Error ? e.message : 'Không thể xóa idea', 'error')
     }
   }
 
@@ -137,12 +169,6 @@ export function NichePage() {
       </header>
 
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-6 py-3">
-        <button
-          onClick={handleAddIdea}
-          className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800"
-        >
-          + Thêm idea
-        </button>
         <button
           onClick={handleSaveSelected}
           disabled={selected.size === 0}
@@ -188,21 +214,15 @@ export function NichePage() {
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
-          <option value="">Tất cả người phụ trách</option>
+          <option value="">Tất cả Owner</option>
           {catalog.assignees.filter((a) => a.is_active).map((a) => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
         </select>
-        <select value={evalFilter} onChange={(e) => setEvalFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
-          <option value="">Tất cả đánh giá</option>
-          <option value="Oke">Oke</option>
-          <option value="Bình thường">Bình thường</option>
-          <option value="Loại bỏ">Loại bỏ</option>
-        </select>
       </div>
 
       <div className="table-scroll flex-1 overflow-auto px-6 py-4">
-        <table className="idea-grid-table min-w-[1500px] border-separate border-spacing-0 text-sm">
+        <table className="idea-grid-table min-w-[1450px] border-separate border-spacing-0 text-sm">
           <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
             <tr>
               <th className="sticky top-0 w-10 border-b border-slate-200 bg-slate-100 px-2 py-2">
@@ -216,105 +236,112 @@ export function NichePage() {
               <th className="sticky top-0 min-w-[150px] border-b border-slate-200 bg-slate-100 px-2 py-2">Đối tượng khách hàng</th>
               <th className="sticky top-0 min-w-[130px] border-b border-slate-200 bg-slate-100 px-2 py-2">Mức độ ưu tiên</th>
               <th className="sticky top-0 min-w-[150px] border-b border-slate-200 bg-slate-100 px-2 py-2">Trạng thái xử lý</th>
-              <th className="sticky top-0 min-w-[140px] border-b border-slate-200 bg-slate-100 px-2 py-2">Người phụ trách</th>
-              <th className="sticky top-0 min-w-[220px] border-b border-slate-200 bg-slate-100 px-2 py-2">Đánh giá</th>
+              <th className="sticky top-0 min-w-[140px] border-b border-slate-200 bg-slate-100 px-2 py-2">Owner</th>
               <th className="sticky top-0 min-w-[180px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ghi chú</th>
+              <th className="sticky top-0 w-20 border-b border-slate-200 bg-slate-100 px-2 py-2 text-center">Xóa</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((idea) => (
-              <tr key={idea.id} className="bg-white odd:bg-slate-50/50 hover:bg-emerald-50/40">
-                <td className="border-b border-slate-100 px-2 py-1 align-top">
-                  <input type="checkbox" checked={selected.has(idea.id)} onChange={() => toggleSelect(idea.id)} />
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <TextCell value={idea.name} required onCommit={(v) => commit(idea.id, { name: v })} placeholder="Tên idea..." />
-                  <div className="px-2 text-[11px] text-slate-400">{savedSourceIds.has(idea.id) ? '✅ Đã lưu vĩnh viễn' : 'Chưa lưu'}</div>
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <SelectCell
-                    value={idea.niche_id ?? ''}
-                    options={catalog.niches
-                      .filter((n) => n.is_active)
-                      .map((n) => ({ value: n.id, label: n.name }))}
-                    onCommit={(v) => commit(idea.id, { niche_id: v, sub_niche_id: null })}
-                  />
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <SelectCell
-                    value={idea.sub_niche_id ?? ''}
-                    placeholder="— Chọn —"
-                    options={catalog.subNiches
-                      .filter((s) => s.niche_id === idea.niche_id && s.is_active)
-                      .map((s) => ({ value: s.id, label: s.name }))}
-                    onCommit={(v) => commit(idea.id, { sub_niche_id: v })}
-                  />
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <SelectCell
-                    value={idea.product_type_id ?? ''}
-                    placeholder="— Chọn —"
-                    options={catalog.productTypes
-                      .filter((p) => p.is_active)
-                      .map((p) => ({ value: p.id, label: p.name }))}
-                    onCommit={(v) => commit(idea.id, { product_type_id: v })}
-                  />
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <UrlCell value={idea.product_url ?? ''} onCommit={(v) => commit(idea.id, { product_url: v })} />
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <TextCell value={idea.target_customer ?? ''} onCommit={(v) => commit(idea.id, { target_customer: v })} placeholder="Vd: Dog Owner" />
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <SelectCell value={idea.priority} options={PRIORITY_OPTIONS} onCommit={(v: Priority) => commit(idea.id, { priority: v })} />
-                  <div className="px-2 py-0.5"><PriorityBadge value={idea.priority} /></div>
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <SelectCell value={idea.status} options={STATUS_OPTIONS} onCommit={(v: Status) => commit(idea.id, { status: v })} />
-                  <div className="px-2 py-0.5"><StatusBadge value={idea.status} /></div>
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <SelectCell
-                    value={idea.assignee_id ?? ''}
-                    placeholder="— Chọn —"
-                    options={catalog.assignees
-                      .filter((a) => a.is_active)
-                      .map((a) => ({ value: a.id, label: a.name }))}
-                    onCommit={(v) => commit(idea.id, { assignee_id: v })}
-                  />
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <div className="flex gap-1">
+              <Fragment key={idea.id}>
+                <tr id={`idea-row-${idea.id}`} className={rowPriorityClass(idea.priority)}>
+                  <td className="px-2 py-1 align-top">
+                    <input type="checkbox" checked={selected.has(idea.id)} onChange={() => toggleSelect(idea.id)} />
+                  </td>
+                  <td className="px-1 py-1 align-top">
+                    <TextCell value={idea.name} required onCommit={(v) => commit(idea.id, { name: v })} placeholder="Tên idea..." />
+                    <div className="px-2 text-[11px] text-slate-400">{savedSourceIds.has(idea.id) ? '✅ Đã lưu vĩnh viễn' : 'Chưa lưu'}</div>
+                  </td>
+                  <td className="px-1 py-1 align-top">
+                    <SelectCell
+                      value={idea.niche_id ?? ''}
+                      options={catalog.niches
+                        .filter((n) => n.is_active)
+                        .map((n) => ({ value: n.id, label: n.name }))}
+                      onCommit={(v) => commit(idea.id, { niche_id: v, sub_niche_id: null })}
+                    />
+                  </td>
+                  <td className="px-1 py-1 align-top">
+                    <SelectCell
+                      value={idea.sub_niche_id ?? ''}
+                      placeholder="— Chọn —"
+                      options={catalog.subNiches
+                        .filter((s) => s.niche_id === idea.niche_id && s.is_active)
+                        .map((s) => ({ value: s.id, label: s.name }))}
+                      onCommit={(v) => commit(idea.id, { sub_niche_id: v })}
+                    />
+                  </td>
+                  <td className="px-1 py-1 align-top">
+                    <SelectCell
+                      value={idea.product_type_id ?? ''}
+                      placeholder="— Chọn —"
+                      options={catalog.productTypes
+                        .filter((p) => p.is_active)
+                        .map((p) => ({ value: p.id, label: p.name }))}
+                      onCommit={(v) => commit(idea.id, { product_type_id: v })}
+                    />
+                  </td>
+                  <td className="px-1 py-1 align-top">
+                    <UrlCell value={idea.product_url ?? ''} onCommit={(v) => commit(idea.id, { product_url: v })} />
+                  </td>
+                  <td className="px-1 py-1 align-top">
+                    <TextCell value={idea.target_customer ?? ''} onCommit={(v) => commit(idea.id, { target_customer: v })} placeholder="Vd: Dog Owner" />
+                  </td>
+                  <td className="px-1 py-1 align-top">
+                    <SelectCell value={idea.priority} options={PRIORITY_OPTIONS} onCommit={(v: Priority) => commit(idea.id, { priority: v })} />
+                    <div className="px-2 py-0.5"><PriorityBadge value={idea.priority} /></div>
+                  </td>
+                  <td className="px-1 py-1 align-top">
+                    <SelectCell value={idea.status} options={STATUS_OPTIONS} onCommit={(v: Status) => commit(idea.id, { status: v })} />
+                    <div className="px-2 py-0.5"><StatusBadge value={idea.status} /></div>
+                  </td>
+                  <td className="px-1 py-1 align-top">
+                    <SelectCell
+                      value={idea.assignee_id ?? ''}
+                      placeholder="— Chọn —"
+                      options={catalog.assignees
+                        .filter((a) => a.is_active)
+                        .map((a) => ({ value: a.id, label: a.name }))}
+                      onCommit={(v) => commit(idea.id, { assignee_id: v })}
+                    />
+                  </td>
+                  <td className="px-1 py-1 align-top">
+                    <TextAreaCell value={idea.notes ?? ''} onCommit={(v) => commit(idea.id, { notes: v })} />
+                  </td>
+                  <td className="px-2 py-2 text-center align-top">
                     <button
-                      onClick={() => handleEvaluate(idea, 'Oke')}
-                      className={`rounded-md px-2 py-1 text-xs font-medium ${idea.evaluation === 'Oke' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
+                      onClick={() => handleQuickDelete(idea.id)}
+                      className="rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
+                      title="Xóa nhanh idea khỏi niche"
                     >
-                      Oke
+                      Xóa
                     </button>
+                  </td>
+                </tr>
+                <tr className="quick-add-row">
+                  <td colSpan={12} className="px-2 py-1 text-center">
                     <button
-                      onClick={() => handleEvaluate(idea, 'Bình thường')}
-                      className={`rounded-md px-2 py-1 text-xs font-medium ${idea.evaluation === 'Bình thường' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
+                      onClick={handleAddIdea}
+                      className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-emerald-300 bg-white/70 px-3 text-xs font-medium text-emerald-700 hover:border-emerald-500 hover:bg-emerald-50"
+                      title="Thêm nhanh một hàng idea mới"
                     >
-                      Bình thường
+                      <span className="text-base leading-none">+</span>
+                      Thêm hàng
                     </button>
-                    <button
-                      onClick={() => handleEvaluate(idea, 'Loại bỏ')}
-                      className={`rounded-md px-2 py-1 text-xs font-medium ${idea.evaluation === 'Loại bỏ' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}
-                    >
-                      Loại bỏ
-                    </button>
-                  </div>
-                </td>
-                <td className="border-b border-slate-100 px-1 py-1 align-top">
-                  <TextAreaCell value={idea.notes ?? ''} onCommit={(v) => commit(idea.id, { notes: v })} />
-                </td>
-              </tr>
+                  </td>
+                </tr>
+              </Fragment>
             ))}
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={12} className="px-4 py-8 text-center text-sm text-slate-400">
-                  Chưa có idea nào. Bấm "Thêm idea" để bắt đầu.
+                  <button
+                    onClick={handleAddIdea}
+                    className="inline-flex items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 font-medium text-white hover:bg-emerald-800"
+                  >
+                    <span className="text-lg leading-none">+</span>
+                    Thêm idea đầu tiên
+                  </button>
                 </td>
               </tr>
             )}

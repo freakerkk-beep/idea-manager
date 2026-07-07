@@ -23,24 +23,19 @@ export function Dashboard() {
   const navigate = useNavigate()
 
   const live = ideas.filter((idea) => idea.status !== 'Đã loại bỏ')
-  const savedSourceIds = useMemo(
-    () => new Set(savedIdeas.map((idea) => idea.source_idea_id).filter(Boolean)),
-    [savedIdeas]
-  )
 
   const stats = useMemo(() => {
     return {
       total: ideas.length,
       saved: savedIdeas.length,
-      ok: live.filter((idea) => idea.evaluation === 'Oke').length,
-      normal: live.filter((idea) => idea.evaluation === 'Bình thường').length,
       researching: live.filter((idea) => idea.status === 'Đang nghiên cứu').length,
       rd: live.filter((idea) => idea.status === 'Đã chọn R&D').length,
       prototype: live.filter((idea) => idea.status === 'Đang prototype').length,
       approved: live.filter((idea) => idea.status === 'Đã duyệt').length,
       removed: ideas.filter((idea) => idea.status === 'Đã loại bỏ').length,
-      unassigned: live.filter((idea) => !idea.assignee_id).length,
+      noOwner: live.filter((idea) => !idea.assignee_id).length,
       highPriority: live.filter((idea) => idea.priority === 'Cao').length,
+      mediumPriority: live.filter((idea) => idea.priority === 'Trung bình').length,
     }
   }, [ideas, live, savedIdeas])
 
@@ -58,8 +53,8 @@ export function Dashboard() {
     .slice(0, 10)
 
   const needAttention = {
-    highNoAssignee: live.filter((idea) => idea.priority === 'Cao' && !idea.assignee_id),
-    okNotSaved: live.filter((idea) => idea.evaluation === 'Oke' && !savedSourceIds.has(idea.id)),
+    highNoOwner: live.filter((idea) => idea.priority === 'Cao' && !idea.assignee_id),
+    noPriority: live.filter((idea) => idea.priority === 'Chưa đánh giá'),
     savedButNew: savedIdeas.filter((idea) => idea.status === 'Idea mới'),
   }
 
@@ -71,15 +66,14 @@ export function Dashboard() {
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         <StatCard label="Tổng số idea" value={stats.total} />
         <StatCard label="Idea đã lưu" value={stats.saved} onClick={() => navigate('/saved')} />
-        <StatCard label="Đánh giá Oke" value={stats.ok} />
-        <StatCard label="Đánh giá Bình thường" value={stats.normal} />
+        <StatCard label="Ưu tiên cao" value={stats.highPriority} />
+        <StatCard label="Ưu tiên trung bình" value={stats.mediumPriority} />
+        <StatCard label="Chưa có Owner" value={stats.noOwner} />
         <StatCard label="Đang nghiên cứu" value={stats.researching} />
         <StatCard label="Đã chọn R&D" value={stats.rd} />
         <StatCard label="Đang prototype" value={stats.prototype} />
         <StatCard label="Đã duyệt" value={stats.approved} />
         <StatCard label="Đã loại bỏ" value={stats.removed} onClick={() => navigate('/trash')} />
-        <StatCard label="Chưa phân công" value={stats.unassigned} />
-        <StatCard label="Ưu tiên cao" value={stats.highPriority} />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -120,7 +114,7 @@ export function Dashboard() {
                 <div>
                   <div className="font-medium text-slate-800">{idea.name}</div>
                   <div className="text-xs text-slate-500">
-                    {idea.niche_name ?? '—'} · {idea.assignee_name ?? 'Chưa phân công'}
+                    {idea.niche_name ?? '—'} · Owner: {idea.assignee_name ?? 'Chưa có'}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -137,17 +131,17 @@ export function Dashboard() {
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Idea cần chú ý</h2>
           <div className="space-y-3 text-sm">
             <div>
-              <div className="font-medium text-slate-700">Ưu tiên cao, chưa có người phụ trách ({needAttention.highNoAssignee.length})</div>
+              <div className="font-medium text-slate-700">Ưu tiên cao, chưa có Owner ({needAttention.highNoOwner.length})</div>
               <ul className="mt-1 space-y-0.5 text-slate-600">
-                {needAttention.highNoAssignee.slice(0, 5).map((idea) => (
+                {needAttention.highNoOwner.slice(0, 5).map((idea) => (
                   <li key={idea.id}>• {idea.name || '(chưa đặt tên)'}</li>
                 ))}
               </ul>
             </div>
             <div>
-              <div className="font-medium text-slate-700">Đánh giá Oke nhưng chưa lưu ({needAttention.okNotSaved.length})</div>
+              <div className="font-medium text-slate-700">Chưa đánh giá mức ưu tiên ({needAttention.noPriority.length})</div>
               <ul className="mt-1 space-y-0.5 text-slate-600">
-                {needAttention.okNotSaved.slice(0, 5).map((idea) => (
+                {needAttention.noPriority.slice(0, 5).map((idea) => (
                   <li key={idea.id}>• {idea.name || '(chưa đặt tên)'}</li>
                 ))}
               </ul>

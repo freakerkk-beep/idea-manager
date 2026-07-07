@@ -27,7 +27,7 @@ export interface Assignee {
   created_at: string
 }
 
-export const PRIORITY_OPTIONS = ['Chưa đánh giá', 'Thấp', 'Trung bình', 'Cao'] as const
+export const PRIORITY_OPTIONS = ['Chưa đánh giá', 'Cao', 'Trung bình'] as const
 export type Priority = (typeof PRIORITY_OPTIONS)[number]
 
 export const STATUS_OPTIONS = [

@@ -2,9 +2,8 @@ import type { Evaluation, Priority, Status } from '../types'
 
 const priorityStyles: Record<Priority, string> = {
   'Chưa đánh giá': 'bg-slate-100 text-slate-600',
-  Thấp: 'bg-sky-100 text-sky-700',
   'Trung bình': 'bg-amber-100 text-amber-700',
-  Cao: 'bg-rose-100 text-rose-700',
+  Cao: 'bg-emerald-100 text-emerald-700',
 }
 
 export function PriorityBadge({ value }: { value: Priority }) {

@@ -1,8 +1,14 @@
 import { supabase } from '../lib/supabase'
-import type { CatalogData, Idea, SavedIdea } from '../types'
+import type { CatalogData, Idea, Priority, SavedIdea } from '../types'
 
 const IDEA_COLUMNS = '*'
 const SAVED_IDEA_COLUMNS = '*'
+
+
+function normalizePriority(value: unknown): Priority {
+  if (value === 'Cao' || value === 'Trung bình') return value
+  return 'Chưa đánh giá'
+}
 
 export async function fetchAllIdeas(): Promise<Idea[]> {
   const { data, error } = await supabase
@@ -10,7 +16,7 @@ export async function fetchAllIdeas(): Promise<Idea[]> {
     .select(IDEA_COLUMNS)
     .order('created_at', { ascending: false })
   if (error) throw error
-  return data as Idea[]
+  return (data as Idea[]).map((idea) => ({ ...idea, priority: normalizePriority(idea.priority) }))
 }
 
 export async function fetchSavedIdeas(): Promise<SavedIdea[]> {
@@ -19,7 +25,7 @@ export async function fetchSavedIdeas(): Promise<SavedIdea[]> {
     .select(SAVED_IDEA_COLUMNS)
     .order('saved_at', { ascending: false })
   if (error) throw error
-  return data as SavedIdea[]
+  return (data as SavedIdea[]).map((idea) => ({ ...idea, priority: normalizePriority(idea.priority) }))
 }
 
 export async function createEmptyIdea(nicheId: string | null): Promise<Idea> {

@@ -102,3 +102,14 @@ export async function updateAssignee(id: string, patch: Partial<Assignee>) {
   const { error } = await supabase.from('assignees').update(patch).eq('id', id)
   if (error) throw error
 }
+
+export async function deleteAssignee(id: string) {
+  const { error: unlinkError } = await supabase
+    .from('ideas')
+    .update({ assignee_id: null })
+    .eq('assignee_id', id)
+  if (unlinkError) throw unlinkError
+
+  const { error } = await supabase.from('assignees').delete().eq('id', id)
+  if (error) throw error
+}
