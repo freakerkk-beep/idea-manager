@@ -74,14 +74,44 @@ export function NichePage() {
 
   useEffect(() => {
     if (!focusIdeaId) return
-    const timer = window.setTimeout(() => {
+
+    let cancelled = false
+    let attempt = 0
+    let retryTimer: number | undefined
+
+    const scrollAndFocusNewIdea = () => {
+      if (cancelled) return
+
       const row = document.getElementById(`idea-row-${focusIdeaId}`)
-      row?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      row?.querySelector<HTMLInputElement>('input:not([type="checkbox"])')?.focus()
-      setFocusIdeaId(null)
-    }, 80)
-    return () => window.clearTimeout(timer)
-  }, [focusIdeaId, filtered])
+      const nameInput = row?.querySelector<HTMLInputElement>('input:not([type="checkbox"])')
+
+      if (row && nameInput) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+        window.setTimeout(() => {
+          if (cancelled) return
+          nameInput.focus({ preventScroll: true })
+          nameInput.select()
+          setFocusIdeaId(null)
+        }, 350)
+        return
+      }
+
+      attempt += 1
+      if (attempt < 40) {
+        retryTimer = window.setTimeout(scrollAndFocusNewIdea, 100)
+      } else {
+        setFocusIdeaId(null)
+        showToast('Đã thêm idea nhưng chưa thể tự chuyển tới hàng mới. Hãy tải lại trang và thử lại.', 'error')
+      }
+    }
+
+    window.requestAnimationFrame(scrollAndFocusNewIdea)
+
+    return () => {
+      cancelled = true
+      if (retryTimer) window.clearTimeout(retryTimer)
+    }
+  }, [focusIdeaId, nicheIdeas.length, showToast])
 
   async function addNicheOption(name: string): Promise<AddableSelectOption> {
     const created = await createNiche(name)
@@ -126,8 +156,8 @@ export function NichePage() {
     try {
       clearFiltersForNewRow()
       const created = await createEmptyIdea(nicheId ?? null)
-      setFocusIdeaId(created.id)
       await refetchIdeas()
+      setFocusIdeaId(created.id)
       showToast('Đã thêm một hàng idea mới ở cuối bảng', 'success')
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Không thể thêm idea', 'error')
@@ -391,9 +421,6 @@ export function NichePage() {
         </table>
 
         <div className="idea-add-sticky">
-          <div className="idea-add-sticky-note">
-            Hàng mới luôn nằm ở cuối bảng — không chèn giữa idea của người khác.
-          </div>
           <button
             onClick={handleAddIdea}
             disabled={isAddingIdea}
