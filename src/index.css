@@ -80,25 +80,28 @@ body {
 
 
 
-/* Nút thêm idea dạng sticky: luôn nhìn thấy khi cuộn, nhưng chỉ tạo hàng ở cuối bảng */
+/* Chỉ giữ nút thêm idea nổi gọn ở góc phải dưới, không tạo thanh nền che bảng */
 .idea-add-sticky {
-  position: sticky;
-  left: 0;
-  bottom: 0;
-  z-index: 30;
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-top: 1px solid rgba(203, 213, 225, 0.9);
-  background: linear-gradient(to top, rgba(246, 247, 245, 0.98) 70%, rgba(246, 247, 245, 0.72));
-  backdrop-filter: blur(6px);
+  position: fixed;
+  right: 20px;
+  bottom: 18px;
+  z-index: 50;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+}
+
+.idea-add-sticky > button {
+  pointer-events: auto;
 }
 
 @media (max-width: 900px) {
   .idea-add-sticky {
-    justify-content: center;
+    right: 12px;
+    bottom: 12px;
   }
 }
