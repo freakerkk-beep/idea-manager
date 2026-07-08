@@ -10,9 +10,11 @@ import {
   updateIdea,
 } from '../services/ideas'
 import { PriorityBadge, StatusBadge } from '../components/Badges'
+import { AddableSelectCell, type AddableSelectOption } from '../components/AddableSelectCell'
 import { SelectCell, TextAreaCell, TextCell, UrlCell } from '../components/cells'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { PRIORITY_OPTIONS, STATUS_OPTIONS, type Idea, type Priority, type Status } from '../types'
+import { PRIORITY_OPTIONS, type Idea, type Priority } from '../types'
+import { createNiche, createProductType, createStatusOption, createSubNiche } from '../services/catalog'
 
 function rowPriorityClass(priority: Priority) {
   if (priority === 'Cao') return 'priority-row-high'
@@ -22,7 +24,7 @@ function rowPriorityClass(priority: Priority) {
 
 export function NichePage() {
   const { nicheId } = useParams<{ nicheId: string }>()
-  const { catalog, ideas, savedIdeas, refetchIdeas, refetchSavedIdeas } = useAppData()
+  const { catalog, ideas, savedIdeas, refetchCatalog, refetchIdeas, refetchSavedIdeas } = useAppData()
   const { showToast } = useToast()
 
   const niche = catalog.niches.find((n) => n.id === nicheId)
@@ -37,6 +39,14 @@ export function NichePage() {
     () => new Set(savedIdeas.map((idea) => idea.source_idea_id).filter(Boolean)),
     [savedIdeas]
   )
+
+  const statusNames = useMemo(() => {
+    const names = [
+      ...catalog.statusOptions.filter((status) => status.is_active).map((status) => status.name),
+      ...nicheIdeas.map((idea) => idea.status),
+    ]
+    return Array.from(new Set(names.filter(Boolean)))
+  }, [catalog.statusOptions, nicheIdeas])
 
   const [search, setSearch] = useState('')
   const [subNicheFilter, setSubNicheFilter] = useState('')
@@ -68,6 +78,34 @@ export function NichePage() {
     }, 80)
     return () => window.clearTimeout(timer)
   }, [focusIdeaId, filtered])
+
+  async function addNicheOption(name: string): Promise<AddableSelectOption> {
+    const created = await createNiche(name)
+    await refetchCatalog()
+    showToast(`Đã thêm niche “${created.name}”`, 'success')
+    return { value: created.id, label: created.name }
+  }
+
+  async function addSubNicheOption(nicheIdForNewOption: string, name: string): Promise<AddableSelectOption> {
+    const created = await createSubNiche(nicheIdForNewOption, name)
+    await refetchCatalog()
+    showToast(`Đã thêm niche con “${created.name}”`, 'success')
+    return { value: created.id, label: created.name }
+  }
+
+  async function addProductTypeOption(name: string): Promise<AddableSelectOption> {
+    const created = await createProductType(name)
+    await refetchCatalog()
+    showToast(`Đã thêm loại sản phẩm “${created.name}”`, 'success')
+    return { value: created.id, label: created.name }
+  }
+
+  async function addStatusOption(name: string): Promise<AddableSelectOption> {
+    const created = await createStatusOption(name)
+    await refetchCatalog()
+    showToast(`Đã thêm trạng thái “${created.name}”`, 'success')
+    return { value: created.name, label: created.name }
+  }
 
   function clearFiltersForNewRow() {
     setSearch('')
@@ -211,7 +249,7 @@ export function NichePage() {
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả trạng thái</option>
-          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+          {statusNames.map((status) => <option key={status} value={status}>{status}</option>)}
         </select>
         <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả Owner</option>
@@ -252,32 +290,47 @@ export function NichePage() {
                     <div className="px-2 text-[11px] text-slate-400">{savedSourceIds.has(idea.id) ? '✅ Đã lưu vĩnh viễn' : 'Chưa lưu'}</div>
                   </td>
                   <td className="px-1 py-1 align-top">
-                    <SelectCell
+                    <AddableSelectCell
                       value={idea.niche_id ?? ''}
+                      placeholder="— Chọn —"
                       options={catalog.niches
-                        .filter((n) => n.is_active)
+                        .filter((n) => n.is_active || n.id === idea.niche_id)
                         .map((n) => ({ value: n.id, label: n.name }))}
-                      onCommit={(v) => commit(idea.id, { niche_id: v, sub_niche_id: null })}
+                      onCommit={(value) => commit(idea.id, { niche_id: value || null, sub_niche_id: null })}
+                      addLabel="Thêm niche chính"
+                      addPlaceholder="Tên niche chính mới..."
+                      onAdd={addNicheOption}
                     />
                   </td>
                   <td className="px-1 py-1 align-top">
-                    <SelectCell
+                    <AddableSelectCell
                       value={idea.sub_niche_id ?? ''}
                       placeholder="— Chọn —"
                       options={catalog.subNiches
-                        .filter((s) => s.niche_id === idea.niche_id && s.is_active)
+                        .filter((s) => s.niche_id === idea.niche_id && (s.is_active || s.id === idea.sub_niche_id))
                         .map((s) => ({ value: s.id, label: s.name }))}
-                      onCommit={(v) => commit(idea.id, { sub_niche_id: v })}
+                      onCommit={(value) => commit(idea.id, { sub_niche_id: value || null })}
+                      addLabel="Thêm niche con"
+                      addPlaceholder="Tên niche con mới..."
+                      addDisabled={!idea.niche_id}
+                      addDisabledMessage="Chọn niche chính trước"
+                      onAdd={(name) => {
+                        if (!idea.niche_id) throw new Error('Hãy chọn niche chính trước khi thêm niche con.')
+                        return addSubNicheOption(idea.niche_id, name)
+                      }}
                     />
                   </td>
                   <td className="px-1 py-1 align-top">
-                    <SelectCell
+                    <AddableSelectCell
                       value={idea.product_type_id ?? ''}
                       placeholder="— Chọn —"
                       options={catalog.productTypes
-                        .filter((p) => p.is_active)
+                        .filter((p) => p.is_active || p.id === idea.product_type_id)
                         .map((p) => ({ value: p.id, label: p.name }))}
-                      onCommit={(v) => commit(idea.id, { product_type_id: v })}
+                      onCommit={(value) => commit(idea.id, { product_type_id: value || null })}
+                      addLabel="Thêm loại sản phẩm"
+                      addPlaceholder="Tên loại sản phẩm mới..."
+                      onAdd={addProductTypeOption}
                     />
                   </td>
                   <td className="px-1 py-1 align-top">
@@ -291,7 +344,15 @@ export function NichePage() {
                     <div className="px-2 py-0.5"><PriorityBadge value={idea.priority} /></div>
                   </td>
                   <td className="px-1 py-1 align-top">
-                    <SelectCell value={idea.status} options={STATUS_OPTIONS} onCommit={(v: Status) => commit(idea.id, { status: v })} />
+                    <AddableSelectCell
+                      value={idea.status}
+                      placeholder="— Chọn —"
+                      options={statusNames.map((status) => ({ value: status, label: status }))}
+                      onCommit={(value) => commit(idea.id, { status: value || 'Idea mới' })}
+                      addLabel="Thêm trạng thái xử lý"
+                      addPlaceholder="Tên trạng thái mới..."
+                      onAdd={addStatusOption}
+                    />
                     <div className="px-2 py-0.5"><StatusBadge value={idea.status} /></div>
                   </td>
                   <td className="px-1 py-1 align-top">

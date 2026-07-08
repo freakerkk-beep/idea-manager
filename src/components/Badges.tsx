@@ -14,7 +14,7 @@ export function PriorityBadge({ value }: { value: Priority }) {
   )
 }
 
-const statusStyles: Record<Status, string> = {
+const knownStatusStyles: Record<string, string> = {
   'Idea mới': 'bg-slate-100 text-slate-600',
   'Đang nghiên cứu': 'bg-indigo-100 text-indigo-700',
   'Chờ đánh giá': 'bg-amber-100 text-amber-700',
@@ -29,8 +29,9 @@ const statusStyles: Record<Status, string> = {
 }
 
 export function StatusBadge({ value }: { value: Status }) {
+  const style = knownStatusStyles[value] ?? 'bg-sky-100 text-sky-700'
   return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusStyles[value]}`}>
+    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${style}`}>
       {value}
     </span>
   )

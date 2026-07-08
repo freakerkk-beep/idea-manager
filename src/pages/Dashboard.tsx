@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAppData } from '../hooks/useAppData'
 import { PriorityBadge, StatusBadge } from '../components/Badges'
-import { STATUS_OPTIONS } from '../types'
 
 function StatCard({ label, value, onClick }: { label: string; value: number; onClick?: () => void }) {
   return (
@@ -43,7 +42,12 @@ export function Dashboard() {
     .filter((niche) => niche.is_active)
     .map((niche) => ({ name: niche.name, count: live.filter((idea) => idea.niche_id === niche.id).length }))
 
-  const byStatus = STATUS_OPTIONS.filter((status) => status !== 'Đã loại bỏ').map((status) => ({
+  const statusNames = Array.from(new Set([
+    ...catalog.statusOptions.filter((status) => status.is_active).map((status) => status.name),
+    ...live.map((idea) => idea.status),
+  ].filter((status) => status && status !== 'Đã loại bỏ')))
+
+  const byStatus = statusNames.map((status) => ({
     status,
     count: live.filter((idea) => idea.status === status).length,
   }))

@@ -7,7 +7,6 @@ import { SelectCell, TextAreaCell, TextCell, UrlCell } from '../components/cells
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import {
   PRIORITY_OPTIONS,
-  STATUS_OPTIONS,
   type Priority,
   type SavedIdea,
   type Status,
@@ -48,6 +47,11 @@ export function SavedIdeas() {
   const [dateTo, setDateTo] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+
+  const statusNames = Array.from(new Set([
+    ...catalog.statusOptions.filter((status) => status.is_active).map((status) => status.name),
+    ...savedIdeas.map((idea) => idea.status),
+  ].filter(Boolean)))
 
   const filtered = savedIdeas.filter((idea) => {
     if (search && !idea.name.toLowerCase().includes(search.toLowerCase())) return false
@@ -199,7 +203,7 @@ export function SavedIdeas() {
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả trạng thái</option>
-          {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
+          {statusNames.map((status) => <option key={status} value={status}>{status}</option>)}
         </select>
         <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả Owner</option>
@@ -287,7 +291,7 @@ export function SavedIdeas() {
                   <div className="px-2 py-0.5"><PriorityBadge value={idea.priority} /></div>
                 </td>
                 <td className="px-1 py-1 align-top">
-                  <SelectCell value={idea.status} options={STATUS_OPTIONS} onCommit={(value: Status) => commit(idea.id, { status: value })} />
+                  <SelectCell value={idea.status} options={statusNames} onCommit={(value: Status) => commit(idea.id, { status: value })} />
                   <div className="px-2 py-0.5"><StatusBadge value={idea.status} /></div>
                 </td>
                 <td className="px-2 py-2 align-top text-xs text-slate-600">{idea.assignee_name || '—'}</td>

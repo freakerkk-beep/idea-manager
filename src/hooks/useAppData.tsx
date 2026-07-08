@@ -15,7 +15,7 @@ interface AppDataContextValue {
   refetchAll: () => Promise<void>
 }
 
-const emptyCatalog: CatalogData = { niches: [], subNiches: [], productTypes: [], assignees: [] }
+const emptyCatalog: CatalogData = { niches: [], subNiches: [], productTypes: [], assignees: [], statusOptions: [] }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null)
 

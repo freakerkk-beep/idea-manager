@@ -27,10 +27,18 @@ export interface Assignee {
   created_at: string
 }
 
+export interface StatusOption {
+  id: string
+  name: string
+  is_active: boolean
+  sort_order: number
+  created_at: string
+}
+
 export const PRIORITY_OPTIONS = ['Chưa đánh giá', 'Cao', 'Trung bình'] as const
 export type Priority = (typeof PRIORITY_OPTIONS)[number]
 
-export const STATUS_OPTIONS = [
+export const DEFAULT_STATUS_OPTIONS = [
   'Idea mới',
   'Đang nghiên cứu',
   'Chờ đánh giá',
@@ -43,7 +51,9 @@ export const STATUS_OPTIONS = [
   'Tạm hoãn',
   'Đã loại bỏ',
 ] as const
-export type Status = (typeof STATUS_OPTIONS)[number]
+
+// Trạng thái được quản lý động trong bảng status_options của Supabase.
+export type Status = string
 
 export const EVALUATION_OPTIONS = ['Oke', 'Bình thường', 'Loại bỏ'] as const
 export type Evaluation = (typeof EVALUATION_OPTIONS)[number]
@@ -100,4 +110,5 @@ export interface CatalogData {
   subNiches: SubNiche[]
   productTypes: ProductType[]
   assignees: Assignee[]
+  statusOptions: StatusOption[]
 }
