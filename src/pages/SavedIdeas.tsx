@@ -24,6 +24,15 @@ function rowPriorityClass(priority: Priority) {
   return ''
 }
 
+function toLocalDateKey(value: string | Date) {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export function SavedIdeas() {
   const { catalog, savedIdeas, refetchSavedIdeas } = useAppData()
   const { showToast } = useToast()
@@ -35,6 +44,8 @@ export function SavedIdeas() {
   const [priorityFilter, setPriorityFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [assigneeFilter, setAssigneeFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
@@ -46,8 +57,22 @@ export function SavedIdeas() {
     if (priorityFilter && idea.priority !== priorityFilter) return false
     if (statusFilter && idea.status !== statusFilter) return false
     if (assigneeFilter && idea.assignee_id !== assigneeFilter) return false
+    const savedDate = toLocalDateKey(idea.saved_at)
+    if (dateFrom && savedDate < dateFrom) return false
+    if (dateTo && savedDate > dateTo) return false
     return true
   })
+
+  function filterToday() {
+    const today = toLocalDateKey(new Date())
+    setDateFrom(today)
+    setDateTo(today)
+  }
+
+  function clearDateFilter() {
+    setDateFrom('')
+    setDateTo('')
+  }
 
   async function commit(id: string, patch: Partial<SavedIdea>) {
     try {
@@ -127,7 +152,9 @@ export function SavedIdeas() {
       <header className="border-b border-slate-200 bg-white px-6 py-4">
         <h1 className="text-lg font-semibold text-slate-900">Idea đã lưu</h1>
         <p className="text-sm text-slate-500">
-          {filtered.length} idea hiển thị / {savedIdeas.length} tổng · Bản lưu độc lập, không bị mất khi dọn idea ở niche.
+          {filtered.length} idea hiển thị / {savedIdeas.length} tổng
+          {(dateFrom || dateTo) && ' · Đang lọc theo ngày lưu'}
+          {' · '}Bản lưu độc lập, không bị mất khi dọn idea ở niche.
         </p>
       </header>
 
@@ -178,6 +205,43 @@ export function SavedIdeas() {
           <option value="">Tất cả Owner</option>
           {catalog.assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}</option>)}
         </select>
+
+        <div className="ml-1 flex items-center gap-1 rounded-md border border-slate-300 bg-slate-50 px-2 py-1">
+          <span className="whitespace-nowrap text-xs font-medium text-slate-600">Ngày lưu:</span>
+          <input
+            type="date"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={(e) => setDateFrom(e.target.value)}
+            aria-label="Từ ngày lưu"
+            className="w-[125px] bg-transparent text-xs text-slate-700 outline-none"
+          />
+          <span className="text-xs text-slate-400">đến</span>
+          <input
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => setDateTo(e.target.value)}
+            aria-label="Đến ngày lưu"
+            className="w-[125px] bg-transparent text-xs text-slate-700 outline-none"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={filterToday}
+          className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+        >
+          Hôm nay
+        </button>
+        {(dateFrom || dateTo) && (
+          <button
+            type="button"
+            onClick={clearDateFilter}
+            className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+          >
+            Xóa lọc ngày
+          </button>
+        )}
       </div>
 
       <div className="table-scroll flex-1 overflow-auto px-6 py-4">
