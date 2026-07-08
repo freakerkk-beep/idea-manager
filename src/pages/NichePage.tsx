@@ -31,7 +31,10 @@ export function NichePage() {
   const subNichesForNiche = catalog.subNiches.filter((s) => s.niche_id === nicheId && s.is_active)
 
   const nicheIdeas = useMemo(
-    () => ideas.filter((i) => i.niche_id === nicheId && i.status !== 'Đã loại bỏ'),
+    () =>
+      ideas
+        .filter((i) => i.niche_id === nicheId && i.status !== 'Đã loại bỏ')
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
     [ideas, nicheId]
   )
 
@@ -57,6 +60,7 @@ export function NichePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [focusIdeaId, setFocusIdeaId] = useState<string | null>(null)
+  const [isAddingIdea, setIsAddingIdea] = useState(false)
 
   const filtered = nicheIdeas.filter((i) => {
     if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false
@@ -117,14 +121,18 @@ export function NichePage() {
   }
 
   async function handleAddIdea() {
+    if (isAddingIdea) return
+    setIsAddingIdea(true)
     try {
       clearFiltersForNewRow()
       const created = await createEmptyIdea(nicheId ?? null)
       setFocusIdeaId(created.id)
       await refetchIdeas()
-      showToast('Đã thêm một hàng idea mới', 'success')
+      showToast('Đã thêm một hàng idea mới ở cuối bảng', 'success')
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Không thể thêm idea', 'error')
+    } finally {
+      setIsAddingIdea(false)
     }
   }
 
@@ -382,14 +390,22 @@ export function NichePage() {
           </tbody>
         </table>
 
-        <div className="idea-add-footer min-w-[1450px]">
+        <div className="idea-add-sticky">
+          <div className="idea-add-sticky-note">
+            Hàng mới luôn nằm ở cuối bảng — không chèn giữa idea của người khác.
+          </div>
           <button
             onClick={handleAddIdea}
-            className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-emerald-300 bg-white px-4 text-xs font-medium text-emerald-700 shadow-sm hover:border-emerald-500 hover:bg-emerald-50"
-            title="Luôn thêm một hàng idea mới ở cuối danh sách"
+            disabled={isAddingIdea}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60"
+            title="Nút luôn hiển thị khi cuộn; hàng mới được thêm ở cuối và tự động đưa bạn tới ô nhập tên"
           >
-            <span className="text-base leading-none">+</span>
-            {filtered.length === 0 ? 'Thêm idea đầu tiên' : 'Thêm hàng ở cuối'}
+            <span className="text-lg leading-none">+</span>
+            {isAddingIdea
+              ? 'Đang thêm...'
+              : filtered.length === 0
+                ? 'Thêm idea đầu tiên'
+                : 'Thêm idea ở cuối'}
           </button>
         </div>
       </div>
