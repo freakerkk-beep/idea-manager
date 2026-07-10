@@ -15,7 +15,7 @@ export const AI_MODEL_PROFILES: Array<{
     profile: 'stable',
     label: 'Ổn định - GPT-4.1 mini',
     shortLabel: 'Ổn định',
-    recommendedFor: 'Câu thường: chấm nhanh, angle, quyết định. Ít lỗi nhất.',
+    recommendedFor: 'Câu thường: angle, quyết định. Ít lỗi nhất.',
   },
   {
     profile: 'cheap',
@@ -48,25 +48,19 @@ export const AI_ANALYSIS_TOOLS: Array<{ type: AiAnalysisType; label: string; sho
     type: 'similar_products',
     label: 'Tìm sản phẩm tương tự',
     shortLabel: 'Tìm tương tự',
-    description: 'Tìm/suy luận sản phẩm tương tự, giá, đối thủ và cơ hội khác biệt.',
-  },
-  {
-    type: 'quick_score',
-    label: 'Chấm điểm bán hàng',
-    shortLabel: 'Chấm nhanh',
-    description: 'Chấm điểm khả năng bán, không nịnh, có tổng điểm và red flag.',
+    description: 'Tìm/suy luận sản phẩm tương tự, giá, đối thủ và cơ hội khác biệt. Trả lời dạng text.',
   },
   {
     type: 'angles',
     label: 'Gợi ý angle',
     shortLabel: 'Angle',
-    description: 'Gợi ý content angle, ads angle, visual và cách làm khác biệt.',
+    description: 'Gợi ý content angle, ads angle, visual và cách làm khác biệt. Trả lời dạng text.',
   },
   {
     type: 'decision',
     label: 'Đề xuất quyết định',
     shortLabel: 'Quyết định',
-    description: 'Đề xuất Nên test / Cần nghiên cứu thêm / Nên bỏ.',
+    description: 'Đề xuất Nên test / Cần nghiên cứu thêm / Nên bỏ. Trả lời thẳng, dạng text.',
   },
 ]
 
