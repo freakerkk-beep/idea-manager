@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { useAppData } from '../hooks/useAppData'
 import { useToast } from '../hooks/useToast'
 import { deleteSavedIdeas, updateSavedIdea } from '../services/ideas'
+import { analyzeIdeaWithOpenAI, createAiReport } from '../services/aiReports'
 import { PriorityBadge, StatusBadge } from '../components/Badges'
 import { SelectCell, TextAreaCell, TextCell, UrlCell } from '../components/cells'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { AiReportModal } from '../components/AiReportModal'
 import {
   PRIORITY_OPTIONS,
+  type AiReport,
   type Priority,
   type SavedIdea,
   type Status,
@@ -33,7 +36,7 @@ function toLocalDateKey(value: string | Date) {
 }
 
 export function SavedIdeas() {
-  const { catalog, savedIdeas, refetchSavedIdeas } = useAppData()
+  const { catalog, savedIdeas, aiReports, refetchSavedIdeas, refetchAiReports } = useAppData()
   const { showToast } = useToast()
 
   const [search, setSearch] = useState('')
@@ -47,11 +50,24 @@ export function SavedIdeas() {
   const [dateTo, setDateTo] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [aiModal, setAiModal] = useState<{
+    open: boolean
+    idea: SavedIdea | null
+    report: string
+    loading: boolean
+    error: string | null
+  }>({ open: false, idea: null, report: '', loading: false, error: null })
 
   const statusNames = Array.from(new Set([
     ...catalog.statusOptions.filter((status) => status.is_active).map((status) => status.name),
     ...savedIdeas.map((idea) => idea.status),
   ].filter(Boolean)))
+
+  const latestReportBySavedIdeaId = new Map<string, AiReport>()
+  for (const report of aiReports) {
+    if (report.source_type !== 'saved_idea' || !report.saved_idea_id) continue
+    if (!latestReportBySavedIdeaId.has(report.saved_idea_id)) latestReportBySavedIdeaId.set(report.saved_idea_id, report)
+  }
 
   const filtered = savedIdeas.filter((idea) => {
     if (search && !idea.name.toLowerCase().includes(search.toLowerCase())) return false
@@ -85,6 +101,67 @@ export function SavedIdeas() {
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Có lỗi khi lưu thay đổi', 'error')
     }
+  }
+
+  function buildAiPayload(idea: SavedIdea) {
+    return {
+      id: idea.id,
+      source_idea_id: idea.source_idea_id,
+      name: idea.name,
+      niche: idea.niche_name ?? '',
+      sub_niche: idea.sub_niche_name ?? '',
+      product_type: idea.product_type_name ?? '',
+      product_url: idea.product_url ?? '',
+      target_customer: idea.target_customer ?? '',
+      priority: idea.priority,
+      status: idea.status,
+      owner: idea.assignee_name ?? '',
+      notes: idea.notes ?? '',
+      saved_at: idea.saved_at,
+    }
+  }
+
+  async function handleAnalyzeIdea(idea: SavedIdea) {
+    if (!idea.name.trim()) {
+      showToast('Hãy nhập tên idea trước khi phân tích AI', 'error')
+      return
+    }
+
+    setAiModal({ open: true, idea, report: '', loading: true, error: null })
+    try {
+      const result = await analyzeIdeaWithOpenAI({ sourceType: 'saved_idea', idea: buildAiPayload(idea) })
+      await createAiReport({
+        idea_id: idea.source_idea_id,
+        saved_idea_id: idea.id,
+        source_type: 'saved_idea',
+        idea_name: idea.name,
+        report_markdown: result.report,
+        score: result.score,
+        model: result.model,
+      })
+      await refetchAiReports()
+      setAiModal({ open: true, idea, report: result.report, loading: false, error: null })
+      showToast('Đã phân tích tự động', 'success')
+    } catch (e) {
+      setAiModal({
+        open: true,
+        idea,
+        report: latestReportBySavedIdeaId.get(idea.id)?.report_markdown ?? '',
+        loading: false,
+        error: e instanceof Error ? e.message : 'Không thể phân tích AI',
+      })
+    }
+  }
+
+  function openLatestAiReport(idea: SavedIdea) {
+    const latest = latestReportBySavedIdeaId.get(idea.id)
+    setAiModal({
+      open: true,
+      idea,
+      report: latest?.report_markdown ?? '',
+      loading: false,
+      error: null,
+    })
   }
 
   function toggleSelect(id: string) {
@@ -266,6 +343,7 @@ export function SavedIdeas() {
               <th className="sticky top-0 min-w-[130px] border-b border-slate-200 bg-slate-100 px-2 py-2">Owner</th>
               <th className="sticky top-0 min-w-[170px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ghi chú</th>
               <th className="sticky top-0 min-w-[110px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ngày lưu</th>
+              <th className="sticky top-0 min-w-[130px] border-b border-slate-200 bg-slate-100 px-2 py-2 text-center">Tự động phân tích</th>
             </tr>
           </thead>
           <tbody>
@@ -301,11 +379,30 @@ export function SavedIdeas() {
                 <td className="px-2 py-2 align-top text-xs text-slate-500">
                   {new Date(idea.saved_at).toLocaleDateString('vi-VN')}
                 </td>
+                <td className="px-2 py-2 text-center align-top">
+                  <div className="flex flex-col items-center gap-1">
+                    <button
+                      onClick={() => handleAnalyzeIdea(idea)}
+                      className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+                      title="Tự động đọc link, nhận diện sản phẩm, phân tích thị trường và gợi ý chiến lược bán hàng"
+                    >
+                      Tự động phân tích
+                    </button>
+                    {latestReportBySavedIdeaId.has(idea.id) && (
+                      <button
+                        onClick={() => openLatestAiReport(idea)}
+                        className="text-[11px] font-medium text-indigo-600 hover:underline"
+                      >
+                        Xem
+                      </button>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-4 py-8 text-center text-sm text-slate-400">Chưa có idea nào được lưu.</td>
+                <td colSpan={13} className="px-4 py-8 text-center text-sm text-slate-400">Chưa có idea nào được lưu.</td>
               </tr>
             )}
           </tbody>
@@ -320,6 +417,17 @@ export function SavedIdeas() {
         danger
         onConfirm={handleDeleteSelected}
         onCancel={() => setConfirmDeleteOpen(false)}
+      />
+
+      <AiReportModal
+        open={aiModal.open}
+        title={aiModal.idea?.name || 'Idea chưa có tên'}
+        report={aiModal.report}
+        loading={aiModal.loading}
+        error={aiModal.error}
+        latestReport={aiModal.idea ? latestReportBySavedIdeaId.get(aiModal.idea.id) ?? null : null}
+        onClose={() => setAiModal({ open: false, idea: null, report: '', loading: false, error: null })}
+        onRegenerate={aiModal.idea ? () => handleAnalyzeIdea(aiModal.idea as SavedIdea) : undefined}
       />
     </div>
   )

@@ -112,3 +112,15 @@ export interface CatalogData {
   assignees: Assignee[]
   statusOptions: StatusOption[]
 }
+
+export interface AiReport {
+  id: string
+  idea_id: string | null
+  saved_idea_id: string | null
+  source_type: 'idea' | 'saved_idea'
+  idea_name: string
+  report_markdown: string
+  score: number | null
+  model: string | null
+  created_at: string
+}

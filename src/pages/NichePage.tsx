@@ -13,8 +13,10 @@ import { PriorityBadge, StatusBadge } from '../components/Badges'
 import { AddableSelectCell, type AddableSelectOption } from '../components/AddableSelectCell'
 import { SelectCell, TextAreaCell, TextCell, UrlCell } from '../components/cells'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { PRIORITY_OPTIONS, type Idea, type Priority } from '../types'
+import { AiReportModal } from '../components/AiReportModal'
+import { PRIORITY_OPTIONS, type AiReport, type Idea, type Priority } from '../types'
 import { createNiche, createProductType, createStatusOption, createSubNiche } from '../services/catalog'
+import { analyzeIdeaWithOpenAI, createAiReport } from '../services/aiReports'
 
 function rowPriorityClass(priority: Priority) {
   if (priority === 'Cao') return 'priority-row-high'
@@ -24,7 +26,7 @@ function rowPriorityClass(priority: Priority) {
 
 export function NichePage() {
   const { nicheId } = useParams<{ nicheId: string }>()
-  const { catalog, ideas, savedIdeas, refetchCatalog, refetchIdeas, refetchSavedIdeas } = useAppData()
+  const { catalog, ideas, savedIdeas, aiReports, refetchCatalog, refetchIdeas, refetchSavedIdeas, refetchAiReports } = useAppData()
   const { showToast } = useToast()
 
   const niche = catalog.niches.find((n) => n.id === nicheId)
@@ -61,6 +63,13 @@ export function NichePage() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [focusIdeaId, setFocusIdeaId] = useState<string | null>(null)
   const [isAddingIdea, setIsAddingIdea] = useState(false)
+  const [aiModal, setAiModal] = useState<{
+    open: boolean
+    idea: Idea | null
+    report: string
+    loading: boolean
+    error: string | null
+  }>({ open: false, idea: null, report: '', loading: false, error: null })
 
   const filtered = nicheIdeas.filter((i) => {
     if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false
@@ -139,6 +148,74 @@ export function NichePage() {
     await refetchCatalog()
     showToast(`Đã thêm trạng thái “${created.name}”`, 'success')
     return { value: created.name, label: created.name }
+  }
+
+  const latestReportByIdeaId = useMemo(() => {
+    const map = new Map<string, AiReport>()
+    for (const report of aiReports) {
+      if (report.source_type !== 'idea' || !report.idea_id) continue
+      if (!map.has(report.idea_id)) map.set(report.idea_id, report)
+    }
+    return map
+  }, [aiReports])
+
+  function buildAiPayload(idea: Idea) {
+    return {
+      id: idea.id,
+      name: idea.name,
+      niche: catalog.niches.find((n) => n.id === idea.niche_id)?.name ?? '',
+      sub_niche: catalog.subNiches.find((s) => s.id === idea.sub_niche_id)?.name ?? '',
+      product_type: catalog.productTypes.find((p) => p.id === idea.product_type_id)?.name ?? '',
+      product_url: idea.product_url ?? '',
+      target_customer: idea.target_customer ?? '',
+      priority: idea.priority,
+      status: idea.status,
+      owner: catalog.assignees.find((a) => a.id === idea.assignee_id)?.name ?? '',
+      notes: idea.notes ?? '',
+    }
+  }
+
+  async function handleAnalyzeIdea(idea: Idea) {
+    if (!idea.name.trim()) {
+      showToast('Hãy nhập tên idea trước khi phân tích AI', 'error')
+      return
+    }
+
+    setAiModal({ open: true, idea, report: '', loading: true, error: null })
+    try {
+      const result = await analyzeIdeaWithOpenAI({ sourceType: 'idea', idea: buildAiPayload(idea) })
+      await createAiReport({
+        idea_id: idea.id,
+        saved_idea_id: null,
+        source_type: 'idea',
+        idea_name: idea.name,
+        report_markdown: result.report,
+        score: result.score,
+        model: result.model,
+      })
+      await refetchAiReports()
+      setAiModal({ open: true, idea, report: result.report, loading: false, error: null })
+      showToast('Đã phân tích tự động', 'success')
+    } catch (e) {
+      setAiModal({
+        open: true,
+        idea,
+        report: latestReportByIdeaId.get(idea.id)?.report_markdown ?? '',
+        loading: false,
+        error: e instanceof Error ? e.message : 'Không thể phân tích AI',
+      })
+    }
+  }
+
+  function openLatestAiReport(idea: Idea) {
+    const latest = latestReportByIdeaId.get(idea.id)
+    setAiModal({
+      open: true,
+      idea,
+      report: latest?.report_markdown ?? '',
+      loading: false,
+      error: null,
+    })
   }
 
   function clearFiltersForNewRow() {
@@ -314,6 +391,7 @@ export function NichePage() {
               <th className="sticky top-0 min-w-[150px] border-b border-slate-200 bg-slate-100 px-2 py-2">Trạng thái xử lý</th>
               <th className="sticky top-0 min-w-[140px] border-b border-slate-200 bg-slate-100 px-2 py-2">Owner</th>
               <th className="sticky top-0 min-w-[180px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ghi chú</th>
+              <th className="sticky top-0 min-w-[130px] border-b border-slate-200 bg-slate-100 px-2 py-2 text-center">Tự động phân tích</th>
               <th className="sticky top-0 w-20 border-b border-slate-200 bg-slate-100 px-2 py-2 text-center">Xóa</th>
             </tr>
           </thead>
@@ -407,6 +485,25 @@ export function NichePage() {
                     <TextAreaCell value={idea.notes ?? ''} onCommit={(v) => commit(idea.id, { notes: v })} />
                   </td>
                   <td className="px-2 py-2 text-center align-top">
+                    <div className="flex flex-col items-center gap-1">
+                      <button
+                        onClick={() => handleAnalyzeIdea(idea)}
+                        className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+                        title="Tự động đọc link, nhận diện sản phẩm, phân tích thị trường và gợi ý chiến lược bán hàng"
+                      >
+                        Tự động phân tích
+                      </button>
+                      {latestReportByIdeaId.has(idea.id) && (
+                        <button
+                          onClick={() => openLatestAiReport(idea)}
+                          className="text-[11px] font-medium text-indigo-600 hover:underline"
+                        >
+                          Xem
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 text-center align-top">
                     <button
                       onClick={() => handleQuickDelete(idea.id)}
                       className="rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
@@ -445,6 +542,17 @@ export function NichePage() {
         danger
         onConfirm={handleDeleteSelected}
         onCancel={() => setConfirmDeleteOpen(false)}
+      />
+
+      <AiReportModal
+        open={aiModal.open}
+        title={aiModal.idea?.name || 'Idea chưa có tên'}
+        report={aiModal.report}
+        loading={aiModal.loading}
+        error={aiModal.error}
+        latestReport={aiModal.idea ? latestReportByIdeaId.get(aiModal.idea.id) ?? null : null}
+        onClose={() => setAiModal({ open: false, idea: null, report: '', loading: false, error: null })}
+        onRegenerate={aiModal.idea ? () => handleAnalyzeIdea(aiModal.idea as Idea) : undefined}
       />
     </div>
   )
