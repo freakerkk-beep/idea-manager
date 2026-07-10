@@ -1,5 +1,58 @@
 const MAX_PRODUCT_TEXT = 9000
 const DEFAULT_MODEL = 'gpt-5-mini'
+const DEFAULT_FALLBACK_MODEL = 'gpt-4.1-mini'
+
+const MODEL_PROFILES = {
+  stable: {
+    label: 'Ổn định / câu thường',
+    env: 'OPENAI_MODEL_STABLE',
+    fallback: DEFAULT_FALLBACK_MODEL,
+    webSearch: false,
+    description: 'Dùng cho chấm nhanh, angle, quyết định. Ổn định và ít lỗi nhất.',
+  },
+  cheap: {
+    label: 'Nhẹ / nhiều idea',
+    env: 'OPENAI_MODEL_CHEAP',
+    fallback: 'gpt-5.6-luna',
+    webSearch: false,
+    description: 'Dùng khi muốn chạy số lượng lớn, không cần web search.',
+  },
+  balanced: {
+    label: 'Cân bằng',
+    env: 'OPENAI_MODEL_BALANCED',
+    fallback: DEFAULT_MODEL,
+    webSearch: false,
+    description: 'Dùng cho idea quan trọng vừa phải, cần phân tích sâu hơn bản ổn định.',
+  },
+  strong: {
+    label: 'Mạnh / idea quan trọng',
+    env: 'OPENAI_MODEL_STRONG',
+    fallback: 'gpt-5.6-terra',
+    webSearch: false,
+    description: 'Dùng cho idea đã shortlist, cần đánh giá kỹ nhưng chưa cần tìm web.',
+  },
+  research: {
+    label: 'Research thị trường',
+    env: 'OPENAI_MODEL_RESEARCH',
+    fallback: 'gpt-5.6-terra',
+    webSearch: true,
+    description: 'Dùng riêng cho tìm sản phẩm tương tự, có web search nếu tài khoản hỗ trợ.',
+  },
+}
+
+function resolveModelProfile(modelProfile, analysisType) {
+  const requested = typeof modelProfile === 'string' ? modelProfile : ''
+  const profileKey = MODEL_PROFILES[requested] ? requested : (analysisType === 'similar_products' ? 'research' : 'stable')
+  const profile = MODEL_PROFILES[profileKey] || MODEL_PROFILES.stable
+  const model = process.env[profile.env] || (profileKey === 'balanced' ? process.env.OPENAI_MODEL : '') || profile.fallback
+  return {
+    key: profileKey,
+    label: profile.label,
+    model,
+    webSearch: profile.webSearch,
+    description: profile.description,
+  }
+}
 
 const ANALYSIS_TYPES = {
   similar_products: {
@@ -257,7 +310,7 @@ function normalizeScoreTable(scoreTable) {
   })
 }
 
-function normalizeReport(raw, { idea, analysisType, model, productPageTextAvailable, warning }) {
+function normalizeReport(raw, { idea, analysisType, model, modelProfile, modelProfileLabel, productPageTextAvailable, warning }) {
   const parsed = typeof raw === 'string' ? tryParseJson(raw) : raw
   const tool = ANALYSIS_TYPES[analysisType] || ANALYSIS_TYPES.quick_score
   const safe = parsed && typeof parsed === 'object' ? parsed : {}
@@ -314,6 +367,8 @@ function normalizeReport(raw, { idea, analysisType, model, productPageTextAvaila
     next_actions: Array.isArray(safe.next_actions) ? safe.next_actions.map(String) : [],
     meta: {
       model,
+      model_profile: modelProfile || '',
+      model_profile_label: modelProfileLabel || '',
       product_page_text_available: Boolean(productPageTextAvailable),
       warning: warning || '',
       generated_at: new Date().toISOString(),
@@ -321,7 +376,7 @@ function normalizeReport(raw, { idea, analysisType, model, productPageTextAvaila
   }
 }
 
-function buildPrompt({ idea, sourceType, productPageText, analysisType, useWebSearch }) {
+function buildPrompt({ idea, sourceType, productPageText, analysisType, useWebSearch, modelProfileLabel }) {
   const tool = ANALYSIS_TYPES[analysisType] || ANALYSIS_TYPES.quick_score
   return `Bạn là chuyên gia product research, ecommerce growth, creative strategy và market validation cho THỊ TRƯỜNG US.
 
@@ -334,7 +389,8 @@ ${JSON.stringify({ sourceType, ...idea }, null, 2)}
 NỘI DUNG ĐỌC ĐƯỢC TỪ LINK SẢN PHẨM, NẾU CÓ:
 ${productPageText || 'Không đọc được hoặc chưa có link sản phẩm.'}
 
-WEB SEARCH: ${useWebSearch ? 'Được phép dùng web search nếu tool khả dụng. Khi tìm sản phẩm tương tự, phải ưu tiên thị trường US và các nguồn bên dưới.' : 'Không bật web search. Nếu thiếu dữ liệu thị trường, phải ghi rõ là suy luận và giảm confidence.'}
+MODEL ĐANG DÙNG: ${modelProfileLabel || 'Không rõ'}
+WEB SEARCH: ${useWebSearch ? 'Được phép dùng web search nếu tool khả dụng. Khi tìm sản phẩm tương tự, phải ưu tiên thị trường US và các nguồn bên dưới.' : 'Không bật web search. Nếu thiếu dữ liệu thị trường, phải ghi rõ là suy luận và giảm confidence. Nếu analysis_type là similar_products mà không có web search, KHÔNG được bịa link; chỉ đưa nhóm sản phẩm tương tự có khả năng tồn tại và search keyword để team tự kiểm tra.'}
 
 THỊ TRƯỜNG VÀ NGUỒN SO SÁNH BẮT BUỘC:
 - Market mặc định: United States / US buyers.
@@ -372,11 +428,11 @@ final_decision chỉ được là: Nên test / Cần nghiên cứu thêm / Nên 
 confidence chỉ được là: Thấp / Trung bình / Cao.`
 }
 
-async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType, useWebSearch, useStructuredOutput }) {
+async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType, selectedProfile, useWebSearch, useStructuredOutput }) {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('Thiếu OPENAI_API_KEY trong Netlify Environment variables.')
 
-  const model = process.env.OPENAI_MODEL || DEFAULT_MODEL
+  const model = selectedProfile?.model || process.env.OPENAI_MODEL || DEFAULT_MODEL
   const input = [
     {
       role: 'system',
@@ -385,7 +441,7 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType,
     },
     {
       role: 'user',
-      content: buildPrompt({ idea, sourceType, productPageText, analysisType, useWebSearch }),
+      content: buildPrompt({ idea, sourceType, productPageText, analysisType, useWebSearch, modelProfileLabel: selectedProfile?.label }),
     },
   ]
 
@@ -435,7 +491,7 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType,
 
     const text = extractOutputText(data)
     if (!text) throw new Error('OpenAI không trả về nội dung phân tích.')
-    return { text, model, usedWebSearch: useWebSearch }
+    return { text, model, usedWebSearch: useWebSearch, modelProfile: selectedProfile?.key || '', modelProfileLabel: selectedProfile?.label || '' }
   } catch (error) {
     if (error?.name === 'AbortError') throw new Error('OpenAI timeout. Vui lòng thử lại hoặc tắt web search.')
     throw error
@@ -444,27 +500,45 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType,
   }
 }
 
-async function callOpenAI({ idea, sourceType, productPageText, analysisType, useWebSearch }) {
-  try {
-    return await callOpenAIOnce({ idea, sourceType, productPageText, analysisType, useWebSearch, useStructuredOutput: true })
-  } catch (firstError) {
-    const message = firstError instanceof Error ? firstError.message : String(firstError)
+async function callOpenAI({ idea, sourceType, productPageText, analysisType, selectedProfile }) {
+  const wantsWebSearch = Boolean(selectedProfile?.webSearch)
 
-    // Fallback 1: một số account/model có thể chưa hỗ trợ schema hoặc web_search.
-    if (useWebSearch || /schema|format|web_search|tool|unsupported|invalid/i.test(message)) {
-      try {
-        return await callOpenAIOnce({ idea, sourceType, productPageText, analysisType, useWebSearch: false, useStructuredOutput: true })
-      } catch (secondError) {
-        const secondMessage = secondError instanceof Error ? secondError.message : String(secondError)
-        if (/schema|format|unsupported|invalid/i.test(secondMessage)) {
-          return await callOpenAIOnce({ idea, sourceType, productPageText, analysisType, useWebSearch: false, useStructuredOutput: false })
-        }
-        throw secondError
-      }
-    }
+  const attempts = [
+    { profile: selectedProfile, useWebSearch: wantsWebSearch, useStructuredOutput: true },
+    { profile: selectedProfile, useWebSearch: false, useStructuredOutput: true },
+    { profile: selectedProfile, useWebSearch: false, useStructuredOutput: false },
+  ]
 
-    throw firstError
+  // Fallback cuối: model ổn định cũ, không web search. Tránh tình trạng model mới/account chưa có quyền làm hỏng toàn bộ flow.
+  if (selectedProfile?.model !== DEFAULT_FALLBACK_MODEL) {
+    attempts.push({
+      profile: { key: 'fallback', label: 'Fallback ổn định', model: process.env.OPENAI_MODEL_FALLBACK || DEFAULT_FALLBACK_MODEL, webSearch: false },
+      useWebSearch: false,
+      useStructuredOutput: true,
+    })
   }
+
+  let lastError = null
+  for (const attempt of attempts) {
+    try {
+      return await callOpenAIOnce({
+        idea,
+        sourceType,
+        productPageText,
+        analysisType,
+        selectedProfile: attempt.profile,
+        useWebSearch: attempt.useWebSearch,
+        useStructuredOutput: attempt.useStructuredOutput,
+      })
+    } catch (error) {
+      lastError = error
+      const message = error instanceof Error ? error.message : String(error)
+      const canFallback = /schema|format|web_search|tool|unsupported|invalid|model|does not exist|not found|timeout|rate|429|quota/i.test(message)
+      if (!canFallback && attempt === attempts[0]) throw error
+    }
+  }
+
+  throw lastError || new Error('Không thể gọi OpenAI.')
 }
 
 export const handler = async (event) => {
@@ -477,21 +551,25 @@ export const handler = async (event) => {
     return json(400, { error: 'Body phải là JSON hợp lệ.' })
   }
 
-  const { idea, sourceType = 'idea', analysisType = 'quick_score' } = payload
+  const { idea, sourceType = 'idea', analysisType = 'quick_score', modelProfile } = payload
   if (!idea || typeof idea !== 'object') return json(400, { error: 'Thiếu dữ liệu idea.' })
   if (!ANALYSIS_TYPES[analysisType]) return json(400, { error: 'analysisType không hợp lệ.' })
 
   try {
     const productPageText = await fetchProductPageText(idea.product_url)
-    const wantsWebSearch = process.env.OPENAI_ENABLE_WEB_SEARCH === 'true' || analysisType === 'similar_products'
+    const selectedProfile = resolveModelProfile(modelProfile, analysisType)
+    const webSearchAllowed = process.env.OPENAI_ENABLE_WEB_SEARCH !== 'false'
+    const finalProfile = { ...selectedProfile, webSearch: Boolean(selectedProfile.webSearch && webSearchAllowed) }
 
-    const result = await callOpenAI({ idea, sourceType, productPageText, analysisType, useWebSearch: wantsWebSearch })
+    const result = await callOpenAI({ idea, sourceType, productPageText, analysisType, selectedProfile: finalProfile })
     const reportObject = normalizeReport(result.text, {
       idea,
       analysisType,
       model: result.model,
+      modelProfile: result.modelProfile,
+      modelProfileLabel: result.modelProfileLabel,
       productPageTextAvailable: Boolean(productPageText),
-      warning: result.usedWebSearch ? '' : (wantsWebSearch ? 'Đã fallback không dùng web search để tránh lỗi.' : ''),
+      warning: result.usedWebSearch ? '' : (finalProfile.webSearch ? 'Đã fallback không dùng web search để tránh lỗi.' : ''),
     })
 
     return json(200, {
@@ -500,6 +578,8 @@ export const handler = async (event) => {
       score: Math.round(Number(reportObject.overall_score || 0)),
       model: result.model,
       usedWebSearch: result.usedWebSearch,
+      modelProfile: result.modelProfile,
+      modelProfileLabel: result.modelProfileLabel,
       productPageTextAvailable: Boolean(productPageText),
       analysisType,
     })
