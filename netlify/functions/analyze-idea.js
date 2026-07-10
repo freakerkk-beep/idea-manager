@@ -1,5 +1,5 @@
-const MAX_PRODUCT_TEXT = 9000
-const DEFAULT_MODEL = 'gpt-5-mini'
+const MAX_PRODUCT_TEXT = 6000
+const DEFAULT_MODEL = 'gpt-4.1-mini'
 const DEFAULT_FALLBACK_MODEL = 'gpt-4.1-mini'
 
 const MODEL_PROFILES = {
@@ -8,186 +8,55 @@ const MODEL_PROFILES = {
     env: 'OPENAI_MODEL_STABLE',
     fallback: DEFAULT_FALLBACK_MODEL,
     webSearch: false,
-    description: 'Dùng cho chấm nhanh, angle, quyết định. Ổn định và ít lỗi nhất.',
+    description: 'Dùng cho câu thường, angle, quyết định. Ưu tiên ổn định và ít lỗi.',
   },
   cheap: {
     label: 'Nhẹ / nhiều idea',
     env: 'OPENAI_MODEL_CHEAP',
-    fallback: 'gpt-5.6-luna',
+    fallback: DEFAULT_FALLBACK_MODEL,
     webSearch: false,
     description: 'Dùng khi muốn chạy số lượng lớn, không cần web search.',
   },
   balanced: {
     label: 'Cân bằng',
     env: 'OPENAI_MODEL_BALANCED',
-    fallback: DEFAULT_MODEL,
+    fallback: process.env.OPENAI_MODEL || DEFAULT_MODEL,
     webSearch: false,
-    description: 'Dùng cho idea quan trọng vừa phải, cần phân tích sâu hơn bản ổn định.',
+    description: 'Dùng cho idea quan trọng vừa phải.',
   },
   strong: {
     label: 'Mạnh / idea quan trọng',
     env: 'OPENAI_MODEL_STRONG',
-    fallback: 'gpt-5.6-terra',
+    fallback: process.env.OPENAI_MODEL || DEFAULT_MODEL,
     webSearch: false,
     description: 'Dùng cho idea đã shortlist, cần đánh giá kỹ nhưng chưa cần tìm web.',
   },
   research: {
     label: 'Research thị trường',
     env: 'OPENAI_MODEL_RESEARCH',
-    fallback: 'gpt-5.6-terra',
+    fallback: process.env.OPENAI_MODEL || DEFAULT_MODEL,
     webSearch: true,
-    description: 'Dùng riêng cho tìm sản phẩm tương tự, có web search nếu tài khoản hỗ trợ.',
+    description: 'Dùng riêng cho tìm sản phẩm tương tự. Có web search nếu Netlify bật OPENAI_ENABLE_WEB_SEARCH=true.',
   },
-}
-
-function resolveModelProfile(modelProfile, analysisType) {
-  const requested = typeof modelProfile === 'string' ? modelProfile : ''
-  const profileKey = MODEL_PROFILES[requested] ? requested : (analysisType === 'similar_products' ? 'research' : 'stable')
-  const profile = MODEL_PROFILES[profileKey] || MODEL_PROFILES.stable
-  const model = process.env[profile.env] || (profileKey === 'balanced' ? process.env.OPENAI_MODEL : '') || profile.fallback
-  return {
-    key: profileKey,
-    label: profile.label,
-    model,
-    webSearch: profile.webSearch,
-    description: profile.description,
-  }
 }
 
 const ANALYSIS_TYPES = {
   similar_products: {
     label: 'Tìm sản phẩm tương tự',
-    description: 'Tìm/suy luận sản phẩm tương tự trên thị trường, giá tham khảo, điểm mạnh/yếu và mức độ cạnh tranh.',
-  },
-  quick_score: {
-    label: 'Chấm điểm bán hàng',
-    description: 'Chấm điểm khả năng bán theo các tiêu chí thực dụng, không nịnh.',
+    description: 'Tìm/suy luận sản phẩm tương tự trên thị trường US, giá tham khảo, đối thủ và cơ hội khác biệt.',
   },
   angles: {
     label: 'Gợi ý angle',
-    description: 'Đề xuất cách làm khác biệt, content angle, ads angle và visual angle.',
+    description: 'Gợi ý cách làm khác biệt, content angle, ads angle và visual angle.',
   },
   decision: {
     label: 'Đề xuất quyết định',
-    description: 'Đưa ra quyết định Test / Nghiên cứu thêm / Bỏ cùng lý do ngắn gọn.',
+    description: 'Đưa ra quyết định Nên test / Cần nghiên cứu thêm / Nên bỏ cùng lý do ngắn gọn.',
   },
-}
-
-const WEIGHTS = {
-  'Nhu cầu thị trường': 15,
-  'Pain point': 15,
-  'Độ khác biệt / USP': 15,
-  'Dễ làm content': 10,
-  'Dễ chạy ads': 10,
-  'Biên lợi nhuận / giá bán': 10,
-  'Rủi ro cạnh tranh / IP': 15,
-  'Next action rõ ràng': 10,
-}
-
-const REPORT_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: [
-    'report_type',
-    'tool_label',
-    'idea_name',
-    'detected_product',
-    'quick_verdict',
-    'final_decision',
-    'overall_score',
-    'confidence',
-    'assumptions',
-    'red_flags',
-    'similar_products',
-    'score_table',
-    'angle_table',
-    'decision_table',
-    'detail_sections',
-    'next_actions',
-  ],
-  properties: {
-    report_type: { type: 'string', enum: Object.keys(ANALYSIS_TYPES) },
-    tool_label: { type: 'string' },
-    idea_name: { type: 'string' },
-    detected_product: { type: 'string' },
-    quick_verdict: { type: 'string' },
-    final_decision: { type: 'string', enum: ['Nên test', 'Cần nghiên cứu thêm', 'Nên bỏ'] },
-    overall_score: { type: 'number', minimum: 0, maximum: 10 },
-    confidence: { type: 'string', enum: ['Thấp', 'Trung bình', 'Cao'] },
-    assumptions: { type: 'array', items: { type: 'string' } },
-    red_flags: { type: 'array', items: { type: 'string' } },
-    similar_products: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['product_name', 'platform', 'price_range', 'strength', 'weakness', 'differentiation_chance', 'link_or_search_hint'],
-        properties: {
-          product_name: { type: 'string' },
-          platform: { type: 'string' },
-          price_range: { type: 'string' },
-          strength: { type: 'string' },
-          weakness: { type: 'string' },
-          differentiation_chance: { type: 'string' },
-          link_or_search_hint: { type: 'string' },
-        },
-      },
-    },
-    score_table: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['criterion', 'score', 'weight', 'weighted_score', 'comment'],
-        properties: {
-          criterion: { type: 'string' },
-          score: { type: 'number', minimum: 0, maximum: 10 },
-          weight: { type: 'number', minimum: 0, maximum: 100 },
-          weighted_score: { type: 'number' },
-          comment: { type: 'string' },
-        },
-      },
-    },
-    angle_table: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['angle_type', 'hook', 'visual_idea', 'why_it_might_work', 'risk'],
-        properties: {
-          angle_type: { type: 'string' },
-          hook: { type: 'string' },
-          visual_idea: { type: 'string' },
-          why_it_might_work: { type: 'string' },
-          risk: { type: 'string' },
-        },
-      },
-    },
-    decision_table: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['field', 'value'],
-        properties: {
-          field: { type: 'string' },
-          value: { type: 'string' },
-        },
-      },
-    },
-    detail_sections: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['title', 'bullets'],
-        properties: {
-          title: { type: 'string' },
-          bullets: { type: 'array', items: { type: 'string' } },
-        },
-      },
-    },
-    next_actions: { type: 'array', items: { type: 'string' } },
+  // Giữ lại để không lỗi với report/nút cũ, nhưng UI mới không hiển thị nút này nữa.
+  quick_score: {
+    label: 'Đề xuất quyết định',
+    description: 'Đưa ra quyết định ngắn gọn, không dựng bảng điểm nặng.',
   },
 }
 
@@ -199,6 +68,22 @@ function json(statusCode, body) {
       'Cache-Control': 'no-store',
     },
     body: JSON.stringify(body),
+  }
+}
+
+function resolveModelProfile(modelProfile, analysisType) {
+  const requested = typeof modelProfile === 'string' ? modelProfile : ''
+  const profileKey = MODEL_PROFILES[requested]
+    ? requested
+    : (analysisType === 'similar_products' ? 'research' : 'stable')
+  const profile = MODEL_PROFILES[profileKey] || MODEL_PROFILES.stable
+  const model = process.env[profile.env] || profile.fallback || DEFAULT_MODEL
+  return {
+    key: profileKey,
+    label: profile.label,
+    model,
+    webSearch: Boolean(profile.webSearch),
+    description: profile.description,
   }
 }
 
@@ -229,7 +114,7 @@ async function fetchProductPageText(url) {
   if (!['http:', 'https:'].includes(parsed.protocol)) return ''
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 7000)
+  const timeout = setTimeout(() => controller.abort(), 5000)
 
   try {
     const response = await fetch(parsed.toString(), {
@@ -265,123 +150,139 @@ function extractOutputText(data) {
   return chunks.join('\n').trim()
 }
 
-function tryParseJson(text) {
-  if (!text || typeof text !== 'string') return null
-  try {
-    return JSON.parse(text)
-  } catch {
-    const match = text.match(/\{[\s\S]*\}/)
-    if (!match) return null
-    try {
-      return JSON.parse(match[0])
-    } catch {
-      return null
-    }
-  }
-}
-
-function round2(n) {
-  if (!Number.isFinite(Number(n))) return 0
-  return Math.round(Number(n) * 100) / 100
-}
-
-function normalizeScoreTable(scoreTable) {
-  const defaults = Object.entries(WEIGHTS).map(([criterion, weight]) => ({
-    criterion,
-    score: 5,
-    weight,
-    weighted_score: 5 * (weight / 100),
-    comment: 'AI chưa cung cấp nhận xét rõ ràng.',
-  }))
-
-  const rows = Array.isArray(scoreTable) && scoreTable.length ? scoreTable : defaults
-  return rows.map((row, index) => {
-    const criterion = String(row.criterion || defaults[index]?.criterion || `Tiêu chí ${index + 1}`)
-    const fallbackWeight = WEIGHTS[criterion] ?? defaults[index]?.weight ?? 10
-    const weight = Math.max(0, Math.min(100, Number(row.weight ?? fallbackWeight)))
-    const score = Math.max(0, Math.min(10, Number(row.score ?? 5)))
-    return {
-      criterion,
-      score: round2(score),
-      weight: round2(weight),
-      weighted_score: round2(score * (weight / 100)),
-      comment: String(row.comment || 'Chưa có nhận xét.'),
-    }
-  })
-}
-
-function normalizeReport(raw, { idea, analysisType, model, modelProfile, modelProfileLabel, productPageTextAvailable, warning }) {
-  const parsed = typeof raw === 'string' ? tryParseJson(raw) : raw
-  const tool = ANALYSIS_TYPES[analysisType] || ANALYSIS_TYPES.quick_score
-  const safe = parsed && typeof parsed === 'object' ? parsed : {}
-  const scoreTable = normalizeScoreTable(safe.score_table)
-  const totalFromTable = scoreTable.reduce((sum, row) => sum + Number(row.weighted_score || 0), 0)
-  const overallScore = Number.isFinite(Number(safe.overall_score))
-    ? Math.max(0, Math.min(10, Number(safe.overall_score)))
-    : Math.max(0, Math.min(10, totalFromTable))
-
-  const finalDecision = ['Nên test', 'Cần nghiên cứu thêm', 'Nên bỏ'].includes(safe.final_decision)
-    ? safe.final_decision
-    : overallScore >= 7 ? 'Nên test' : overallScore >= 5.5 ? 'Cần nghiên cứu thêm' : 'Nên bỏ'
-
-  return {
-    report_type: analysisType,
-    tool_label: tool.label,
-    idea_name: String(safe.idea_name || idea.name || 'Idea chưa có tên'),
-    detected_product: String(safe.detected_product || safe.product || 'AI chưa nhận diện được rõ sản phẩm.'),
-    quick_verdict: String(safe.quick_verdict || safe.verdict || 'Cần xem chi tiết trước khi quyết định.'),
-    final_decision: finalDecision,
-    overall_score: round2(overallScore),
-    confidence: ['Thấp', 'Trung bình', 'Cao'].includes(safe.confidence) ? safe.confidence : 'Trung bình',
-    assumptions: Array.isArray(safe.assumptions) ? safe.assumptions.map(String) : [],
-    red_flags: Array.isArray(safe.red_flags) ? safe.red_flags.map(String) : [],
-    similar_products: Array.isArray(safe.similar_products) ? safe.similar_products.map((item) => ({
-      product_name: String(item.product_name || item.name || ''),
-      platform: String(item.platform || ''),
-      price_range: String(item.price_range || item.price || ''),
-      strength: String(item.strength || ''),
-      weakness: String(item.weakness || ''),
-      differentiation_chance: String(item.differentiation_chance || item.differentiation || ''),
-      link_or_search_hint: String(item.link_or_search_hint || item.link || item.search_hint || ''),
-    })) : [],
-    score_table: scoreTable,
-    angle_table: Array.isArray(safe.angle_table) ? safe.angle_table.map((item) => ({
-      angle_type: String(item.angle_type || item.type || ''),
-      hook: String(item.hook || ''),
-      visual_idea: String(item.visual_idea || item.visual || ''),
-      why_it_might_work: String(item.why_it_might_work || item.reason || ''),
-      risk: String(item.risk || ''),
-    })) : [],
-    decision_table: Array.isArray(safe.decision_table) ? safe.decision_table.map((item) => ({
-      field: String(item.field || ''),
-      value: String(item.value || ''),
-    })) : [
-      { field: 'Quyết định', value: finalDecision },
-      { field: 'Lý do', value: String(safe.quick_verdict || 'Dựa trên điểm tổng và rủi ro chính.') },
-      { field: 'Mức ưu tiên đề xuất', value: overallScore >= 7 ? 'Cao' : overallScore >= 5.5 ? 'Trung bình' : 'Thấp' },
-    ],
-    detail_sections: Array.isArray(safe.detail_sections) ? safe.detail_sections.map((section) => ({
-      title: String(section.title || ''),
-      bullets: Array.isArray(section.bullets) ? section.bullets.map(String) : [],
-    })) : [],
-    next_actions: Array.isArray(safe.next_actions) ? safe.next_actions.map(String) : [],
-    meta: {
-      model,
-      model_profile: modelProfile || '',
-      model_profile_label: modelProfileLabel || '',
-      product_page_text_available: Boolean(productPageTextAvailable),
-      warning: warning || '',
-      generated_at: new Date().toISOString(),
-    },
-  }
-}
-
 function buildPrompt({ idea, sourceType, productPageText, analysisType, useWebSearch, modelProfileLabel }) {
-  const tool = ANALYSIS_TYPES[analysisType] || ANALYSIS_TYPES.quick_score
-  return `Bạn là chuyên gia product research, ecommerce growth, creative strategy và market validation cho THỊ TRƯỜNG US.
+  const tool = ANALYSIS_TYPES[analysisType] || ANALYSIS_TYPES.decision
+  const safeType = analysisType === 'quick_score' ? 'decision' : analysisType
 
-NHIỆM VỤ ĐANG CHẠY: ${tool.label}
+  const sharedRules = `
+NGUYÊN TẮC BẮT BUỘC:
+- Trả lời bằng tiếng Việt.
+- Trả lời DẠNG TEXT GỌN, không JSON, không markdown table, không code fence.
+- Có thể dùng tiêu đề ngắn và bullet list.
+- Không được nịnh. Không viết PR. Không cố làm sản phẩm trông tốt hơn thực tế.
+- Nếu idea yếu, USP yếu, rủi ro IP/cạnh tranh cao hoặc khó bán, phải nói thẳng.
+- Nếu thiếu dữ liệu, ghi rõ "Giả định" và nói mức tin cậy thấp hơn.
+- Ưu tiên đánh giá thực dụng cho team ecommerce / product research.
+- Market mặc định: United States / US buyers.
+- Dữ liệu đầu vào có thể thiếu; không được bịa số liệu hay bịa link thật.
+`
+
+  const similarPrompt = `
+NHIỆM VỤ: TÌM SẢN PHẨM TƯƠNG TỰ TRÊN THỊ TRƯỜNG US.
+
+Hãy trả lời theo format text này:
+
+Kết luận nhanh:
+- Có/không có dấu hiệu thị trường đã bán sản phẩm tương tự.
+- Mức cạnh tranh: Thấp / Trung bình / Cao.
+- Có đáng nghiên cứu tiếp không?
+
+Sản phẩm / nhóm sản phẩm tương tự nên kiểm tra:
+1. Tên sản phẩm hoặc keyword:
+   - Nền tảng nên tìm: Etsy / Amazon / TikTok Shop / MakerWorld / Printables / Shopify / Pinterest
+   - Giá tham khảo nếu có cơ sở, nếu không thì ghi "cần kiểm tra".
+   - Điểm giống:
+   - Điểm khác:
+   - Cơ hội khác biệt:
+   - Link hoặc keyword tìm kiếm: nếu không chắc link thật thì chỉ ghi keyword, không bịa URL.
+
+Gợi ý keyword để team tự search:
+- Etsy: ...
+- Amazon: ...
+- TikTok Shop: ...
+- MakerWorld/Printables nếu liên quan 3D: ...
+- Pinterest: ...
+
+Red flags:
+- ...
+
+Kết luận cho sếp:
+- Nên test / Cần nghiên cứu thêm / Nên bỏ.
+- Lý do ngắn gọn.
+
+Ưu tiên nguồn:
+1. Etsy cho personalized gift, handmade, decor, POD, custom product.
+2. Amazon cho mass-market, phụ kiện phổ thông, review/giá tham khảo.
+3. TikTok Shop cho trend/impulse-buy/short video.
+4. MakerWorld/Printables cho sản phẩm 3D print.
+5. Shopify/DTC stores cho brand nhỏ.
+6. Pinterest cho visual trend.
+
+WEB SEARCH: ${useWebSearch ? 'Được phép dùng nếu tool khả dụng.' : 'Không bật web search. Hãy suy luận bảo thủ và đưa keyword để team tự kiểm tra. Tuyệt đối không bịa link.'}
+`
+
+  const anglePrompt = `
+NHIỆM VỤ: GỢI Ý ANGLE BÁN HÀNG / CONTENT / ADS.
+
+Hãy trả lời theo format text này:
+
+Kết luận nhanh:
+- Sản phẩm này nên bán bằng angle nào nhất?
+- Angle nào không nên dùng?
+
+Angle đề xuất:
+1. Angle:
+   - Hook:
+   - Visual nên làm:
+   - Target customer:
+   - Vì sao có thể hiệu quả:
+   - Rủi ro:
+
+2. Angle:
+   - Hook:
+   - Visual nên làm:
+   - Target customer:
+   - Vì sao có thể hiệu quả:
+   - Rủi ro:
+
+Cách làm khác biệt:
+- Personalization:
+- Bundle:
+- Form/design:
+- Gift angle:
+
+Next action:
+- 3 việc nên làm tiếp theo để test creative.
+`
+
+  const decisionPrompt = `
+NHIỆM VỤ: ĐỀ XUẤT QUYẾT ĐỊNH CHO SẾP.
+
+Hãy trả lời theo format text này:
+
+Quyết định:
+- Chọn một trong ba: Nên test / Cần nghiên cứu thêm / Nên bỏ.
+
+Lý do chính:
+- 3-5 bullet, nói thẳng.
+
+Điểm mạnh:
+- ...
+
+Điểm yếu / Red flags:
+- ...
+
+Điều kiện để được test:
+- Nếu cần test, phải đạt điều kiện gì? VD: có USP rõ, margin tốt, tìm được 3 creative angle, tránh IP risk...
+
+Next action:
+- Việc tiếp theo cụ thể cho team.
+
+Kết luận một câu:
+- Một câu rất ngắn để sếp quyết định nhanh.
+`
+
+  const taskPrompt = safeType === 'similar_products'
+    ? similarPrompt
+    : safeType === 'angles'
+      ? anglePrompt
+      : decisionPrompt
+
+  return `Bạn là chuyên gia product research, ecommerce growth, creative strategy và market validation cho thị trường US.
+
+CÔNG CỤ ĐANG CHẠY: ${tool.label}
 MỤC TIÊU: ${tool.description}
+MODEL PROFILE: ${modelProfileLabel || 'Không rõ'}
 
 DỮ LIỆU IDEA:
 ${JSON.stringify({ sourceType, ...idea }, null, 2)}
@@ -389,46 +290,12 @@ ${JSON.stringify({ sourceType, ...idea }, null, 2)}
 NỘI DUNG ĐỌC ĐƯỢC TỪ LINK SẢN PHẨM, NẾU CÓ:
 ${productPageText || 'Không đọc được hoặc chưa có link sản phẩm.'}
 
-MODEL ĐANG DÙNG: ${modelProfileLabel || 'Không rõ'}
-WEB SEARCH: ${useWebSearch ? 'Được phép dùng web search nếu tool khả dụng. Khi tìm sản phẩm tương tự, phải ưu tiên thị trường US và các nguồn bên dưới.' : 'Không bật web search. Nếu thiếu dữ liệu thị trường, phải ghi rõ là suy luận và giảm confidence. Nếu analysis_type là similar_products mà không có web search, KHÔNG được bịa link; chỉ đưa nhóm sản phẩm tương tự có khả năng tồn tại và search keyword để team tự kiểm tra.'}
-
-THỊ TRƯỜNG VÀ NGUỒN SO SÁNH BẮT BUỘC:
-- Market mặc định: United States / US buyers.
-- Nếu analysis_type là similar_products, hãy tìm hoặc suy luận sản phẩm tương tự theo thứ tự ưu tiên:
-  1. Etsy: ưu tiên cho personalized gift, handmade, decor, POD, custom product.
-  2. Amazon: ưu tiên cho mass-market, phụ kiện phổ thông, sản phẩm có review/giá tham khảo.
-  3. TikTok Shop: ưu tiên sản phẩm impulse-buy, trend, dễ làm short-form video.
-  4. MakerWorld / Printables: ưu tiên nếu idea liên quan 3D print, file in 3D, decor/prototype in 3D.
-  5. Shopify / DTC stores: tham khảo nếu có brand nhỏ đang bán trực tiếp.
-  6. Pinterest: tham khảo visual trend, aesthetic, content direction.
-- Không được bịa link thật. Nếu không chắc URL thật, điền search keyword vào link_or_search_hint, ví dụ: "Search Etsy: personalized sunglasses case".
-- similar_products nên có 5-8 dòng, mỗi dòng ghi rõ platform, price_range, strength, weakness, differentiation_chance.
-- Nếu không tìm đủ dữ liệu thật, phải ghi vào assumptions và giảm confidence.
-
-NGUYÊN TẮC BẮT BUỘC:
-- Trả về JSON hợp lệ, không markdown, không code fence.
-- Không được nịnh. Không viết kiểu PR. Không cố làm sản phẩm trông tốt hơn thực tế.
-- Nếu idea yếu, USP yếu, rủi ro IP/cạnh tranh cao hoặc khó bán, phải nói thẳng.
-- Nếu thiếu dữ liệu, ghi vào assumptions và hạ confidence/điểm.
-- Đánh giá bảo thủ. Sếp cần biết có đáng test không, không cần lời khen.
-- Nếu analysis_type là similar_products, similar_products là phần quan trọng nhất và phải bám theo nguồn ưu tiên US ở trên.
-- Nếu analysis_type là quick_score, score_table là phần quan trọng nhất.
-- Nếu analysis_type là angles, angle_table là phần quan trọng nhất; angle nên thực dụng cho Facebook/TikTok ads và organic content.
-- Nếu analysis_type là decision, decision_table và final_decision là phần quan trọng nhất.
-
-TIÊU CHÍ CHẤM ĐIỂM VÀ TRỌNG SỐ:
-${Object.entries(WEIGHTS).map(([key, value]) => `- ${key}: ${value}%`).join('\n')}
-
-JSON PHẢI CÓ ĐỦ CÁC FIELD:
-report_type, tool_label, idea_name, detected_product, quick_verdict, final_decision, overall_score, confidence, assumptions, red_flags, similar_products, score_table, angle_table, decision_table, detail_sections, next_actions.
-
-report_type bắt buộc là: ${analysisType}
-tool_label bắt buộc là: ${tool.label}
-final_decision chỉ được là: Nên test / Cần nghiên cứu thêm / Nên bỏ.
-confidence chỉ được là: Thấp / Trung bình / Cao.`
+${sharedRules}
+${taskPrompt}
+`
 }
 
-async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType, selectedProfile, useWebSearch, useStructuredOutput }) {
+async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType, selectedProfile, useWebSearch }) {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('Thiếu OPENAI_API_KEY trong Netlify Environment variables.')
 
@@ -436,32 +303,27 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType,
   const input = [
     {
       role: 'system',
-      content:
-        'Bạn trả về JSON hợp lệ cho hệ thống nội bộ Idea Manager. Không markdown. Không nịnh. Đánh giá bảo thủ và thực dụng.',
+      content: 'Bạn là AI analyst nội bộ. Trả lời dạng text gọn, không JSON, không bảng markdown. Đánh giá bảo thủ, không nịnh.',
     },
     {
       role: 'user',
-      content: buildPrompt({ idea, sourceType, productPageText, analysisType, useWebSearch, modelProfileLabel: selectedProfile?.label }),
+      content: buildPrompt({
+        idea,
+        sourceType,
+        productPageText,
+        analysisType,
+        useWebSearch,
+        modelProfileLabel: selectedProfile?.label,
+      }),
     },
   ]
 
   const body = { model, input }
 
-  if (useStructuredOutput) {
-    body.text = {
-      format: {
-        type: 'json_schema',
-        name: 'idea_ai_tool_report',
-        schema: REPORT_SCHEMA,
-        strict: true,
-      },
-    }
-  }
-
   if (String(model).startsWith('gpt-5')) {
     body.reasoning = { effort: process.env.OPENAI_REASONING_EFFORT || 'low' }
   } else {
-    body.temperature = 0.25
+    body.temperature = 0.35
   }
 
   if (useWebSearch) {
@@ -470,7 +332,7 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType,
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 45000)
+  const timeout = setTimeout(() => controller.abort(), 40000)
 
   try {
     const response = await fetch('https://api.openai.com/v1/responses', {
@@ -491,7 +353,13 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType,
 
     const text = extractOutputText(data)
     if (!text) throw new Error('OpenAI không trả về nội dung phân tích.')
-    return { text, model, usedWebSearch: useWebSearch, modelProfile: selectedProfile?.key || '', modelProfileLabel: selectedProfile?.label || '' }
+    return {
+      text,
+      model,
+      usedWebSearch: useWebSearch,
+      modelProfile: selectedProfile?.key || '',
+      modelProfileLabel: selectedProfile?.label || '',
+    }
   } catch (error) {
     if (error?.name === 'AbortError') throw new Error('OpenAI timeout. Vui lòng thử lại hoặc tắt web search.')
     throw error
@@ -502,19 +370,20 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType,
 
 async function callOpenAI({ idea, sourceType, productPageText, analysisType, selectedProfile }) {
   const wantsWebSearch = Boolean(selectedProfile?.webSearch)
-
   const attempts = [
-    { profile: selectedProfile, useWebSearch: wantsWebSearch, useStructuredOutput: true },
-    { profile: selectedProfile, useWebSearch: false, useStructuredOutput: true },
-    { profile: selectedProfile, useWebSearch: false, useStructuredOutput: false },
+    { profile: selectedProfile, useWebSearch: wantsWebSearch },
+    { profile: selectedProfile, useWebSearch: false },
   ]
 
-  // Fallback cuối: model ổn định cũ, không web search. Tránh tình trạng model mới/account chưa có quyền làm hỏng toàn bộ flow.
   if (selectedProfile?.model !== DEFAULT_FALLBACK_MODEL) {
     attempts.push({
-      profile: { key: 'fallback', label: 'Fallback ổn định', model: process.env.OPENAI_MODEL_FALLBACK || DEFAULT_FALLBACK_MODEL, webSearch: false },
+      profile: {
+        key: 'fallback',
+        label: 'Fallback ổn định',
+        model: process.env.OPENAI_MODEL_FALLBACK || DEFAULT_FALLBACK_MODEL,
+        webSearch: false,
+      },
       useWebSearch: false,
-      useStructuredOutput: true,
     })
   }
 
@@ -528,12 +397,11 @@ async function callOpenAI({ idea, sourceType, productPageText, analysisType, sel
         analysisType,
         selectedProfile: attempt.profile,
         useWebSearch: attempt.useWebSearch,
-        useStructuredOutput: attempt.useStructuredOutput,
       })
     } catch (error) {
       lastError = error
       const message = error instanceof Error ? error.message : String(error)
-      const canFallback = /schema|format|web_search|tool|unsupported|invalid|model|does not exist|not found|timeout|rate|429|quota/i.test(message)
+      const canFallback = /web_search|tool|unsupported|invalid|model|does not exist|not found|timeout|rate|429|quota|billing/i.test(message)
       if (!canFallback && attempt === attempts[0]) throw error
     }
   }
@@ -551,37 +419,32 @@ export const handler = async (event) => {
     return json(400, { error: 'Body phải là JSON hợp lệ.' })
   }
 
-  const { idea, sourceType = 'idea', analysisType = 'quick_score', modelProfile } = payload
+  const { idea, sourceType = 'idea', analysisType = 'decision', modelProfile } = payload
   if (!idea || typeof idea !== 'object') return json(400, { error: 'Thiếu dữ liệu idea.' })
   if (!ANALYSIS_TYPES[analysisType]) return json(400, { error: 'analysisType không hợp lệ.' })
 
   try {
     const productPageText = await fetchProductPageText(idea.product_url)
     const selectedProfile = resolveModelProfile(modelProfile, analysisType)
-    const webSearchAllowed = process.env.OPENAI_ENABLE_WEB_SEARCH !== 'false'
-    const finalProfile = { ...selectedProfile, webSearch: Boolean(selectedProfile.webSearch && webSearchAllowed) }
+    const webSearchAllowed = process.env.OPENAI_ENABLE_WEB_SEARCH === 'true'
+    const finalProfile = {
+      ...selectedProfile,
+      webSearch: Boolean(analysisType === 'similar_products' && selectedProfile.webSearch && webSearchAllowed),
+    }
 
     const result = await callOpenAI({ idea, sourceType, productPageText, analysisType, selectedProfile: finalProfile })
-    const reportObject = normalizeReport(result.text, {
-      idea,
-      analysisType,
-      model: result.model,
-      modelProfile: result.modelProfile,
-      modelProfileLabel: result.modelProfileLabel,
-      productPageTextAvailable: Boolean(productPageText),
-      warning: result.usedWebSearch ? '' : (finalProfile.webSearch ? 'Đã fallback không dùng web search để tránh lỗi.' : ''),
-    })
 
     return json(200, {
-      report: JSON.stringify(reportObject),
-      reportObject,
-      score: Math.round(Number(reportObject.overall_score || 0)),
+      report: result.text,
+      reportObject: null,
+      score: null,
       model: result.model,
       usedWebSearch: result.usedWebSearch,
       modelProfile: result.modelProfile,
       modelProfileLabel: result.modelProfileLabel,
       productPageTextAvailable: Boolean(productPageText),
       analysisType,
+      warning: result.usedWebSearch ? '' : (finalProfile.webSearch ? 'Đã fallback không dùng web search để tránh lỗi.' : ''),
     })
   } catch (error) {
     return json(500, { error: error instanceof Error ? error.message : 'Không thể phân tích AI.' })
