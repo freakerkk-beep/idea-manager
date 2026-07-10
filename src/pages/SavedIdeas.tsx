@@ -4,10 +4,12 @@ import { useToast } from '../hooks/useToast'
 import { deleteSavedIdeas, updateSavedIdea } from '../services/ideas'
 import {
   AI_ANALYSIS_TOOLS,
+  AI_MODEL_PROFILES,
   analyzeIdeaWithOpenAI,
   createAiReport,
   getAiReportType,
   type AiAnalysisType,
+  type AiModelProfile,
 } from '../services/aiReports'
 import { PriorityBadge, StatusBadge } from '../components/Badges'
 import { SelectCell, TextAreaCell, TextCell, UrlCell } from '../components/cells'
@@ -65,6 +67,7 @@ export function SavedIdeas() {
     analysisType: AiAnalysisType
   }>({ open: false, idea: null, report: '', loading: false, error: null, analysisType: 'quick_score' })
   const [runningAiKey, setRunningAiKey] = useState<string | null>(null)
+  const [aiModelProfile, setAiModelProfile] = useState<AiModelProfile>('stable')
 
   const statusNames = Array.from(new Set([
     ...catalog.statusOptions.filter((status) => status.is_active).map((status) => status.name),
@@ -157,6 +160,7 @@ export function SavedIdeas() {
         sourceType: 'saved_idea',
         idea: buildAiPayload(idea),
         analysisType,
+        modelProfile: aiModelProfile,
       })
       await createAiReport({
         idea_id: idea.source_idea_id,
@@ -421,6 +425,21 @@ export function SavedIdeas() {
                     </summary>
                     <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-2 text-left shadow-xl">
                       <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Dùng cho vòng sếp duyệt</p>
+                      <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 p-2" onClick={(event) => event.stopPropagation()}>
+                        <label className="mb-1 block text-[11px] font-semibold text-slate-500">Chọn model cho lần hỏi này</label>
+                        <select
+                          value={aiModelProfile}
+                          onChange={(event) => setAiModelProfile(event.target.value as AiModelProfile)}
+                          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        >
+                          {AI_MODEL_PROFILES.map((profile) => (
+                            <option key={profile.profile} value={profile.profile}>{profile.label}</option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                          {AI_MODEL_PROFILES.find((profile) => profile.profile === aiModelProfile)?.recommendedFor}
+                        </p>
+                      </div>
                       {AI_ANALYSIS_TOOLS.map((tool) => {
                         const hasReport = latestReportBySavedIdeaAndType.has(`${idea.id}:${tool.type}`)
                         const isRunning = runningAiKey === `${idea.id}:${tool.type}`
