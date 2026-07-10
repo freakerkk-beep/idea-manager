@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
 import type { AiReport } from '../types'
+import { parseAiReport } from '../services/aiReports'
 
 interface AiReportModalProps {
   open: boolean
@@ -10,86 +10,269 @@ interface AiReportModalProps {
   latestReport?: AiReport | null
   onClose: () => void
   onRegenerate?: () => void
+  regenerateLabel?: string
 }
 
-type Confidence = 'low' | 'medium' | 'high'
+function scoreClass(score: number) {
+  if (score >= 7) return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+  if (score >= 5.5) return 'border-amber-200 bg-amber-50 text-amber-700'
+  return 'border-red-200 bg-red-50 text-red-700'
+}
 
-interface StructuredAiReport {
-  product_summary: {
-    idea_name: string
-    detected_product: string
-    quick_verdict: string
-    overall_score: number
-    confidence: Confidence
-    assumptions: string[]
-    red_flags: string[]
+function decisionClass(decision: string) {
+  if (decision === 'Nên test') return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+  if (decision === 'Cần nghiên cứu thêm') return 'border-amber-200 bg-amber-50 text-amber-700'
+  return 'border-red-200 bg-red-50 text-red-700'
+}
+
+function asArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(String).filter(Boolean) : []
+}
+
+function formatCopyText(parsed: any, fallback: string) {
+  if (!parsed) return fallback
+  const lines = [
+    `AI Tool: ${parsed.tool_label || ''}`,
+    `Idea: ${parsed.idea_name || ''}`,
+    `Sản phẩm: ${parsed.detected_product || ''}`,
+    `Kết luận: ${parsed.quick_verdict || ''}`,
+    `Quyết định: ${parsed.final_decision || ''}`,
+    `Tổng điểm: ${parsed.overall_score ?? ''}/10`,
+    `Mức tin cậy: ${parsed.confidence || ''}`,
+    '',
+  ]
+
+  if (Array.isArray(parsed.score_table) && parsed.score_table.length) {
+    lines.push('BẢNG ĐIỂM:')
+    for (const row of parsed.score_table) {
+      lines.push(`- ${row.criterion}: ${row.score}/10 (${row.weight}%) — ${row.comment}`)
+    }
+    lines.push('')
   }
-  score_table: Array<{
-    criterion: string
-    score: number
-    weight: number
-    weighted_score: number
-    summary: string
-  }>
-  details: {
-    target_customer: string[]
-    pain_point: string[]
-    market_seasonality: string[]
-    usp: string[]
-    content_angle: string[]
-    ads_angle: string[]
-    pricing_bundle_upsell: string[]
-    risks: string[]
-    next_action: string[]
+
+  if (Array.isArray(parsed.similar_products) && parsed.similar_products.length) {
+    lines.push('SẢN PHẨM TƯƠNG TỰ:')
+    for (const item of parsed.similar_products) {
+      lines.push(`- ${item.product_name} | ${item.platform} | ${item.price_range} | ${item.strength} | ${item.weakness}`)
+    }
+    lines.push('')
   }
-}
 
-function parseStructuredReport(text: string): StructuredAiReport | null {
-  if (!text) return null
-  try {
-    const parsed = JSON.parse(text)
-    if (!parsed?.product_summary || !Array.isArray(parsed?.score_table) || !parsed?.details) return null
-    return parsed as StructuredAiReport
-  } catch {
-    return null
+  if (Array.isArray(parsed.angle_table) && parsed.angle_table.length) {
+    lines.push('ANGLE:')
+    for (const item of parsed.angle_table) {
+      lines.push(`- ${item.angle_type}: ${item.hook} | Visual: ${item.visual_idea} | Risk: ${item.risk}`)
+    }
+    lines.push('')
   }
+
+  if (Array.isArray(parsed.next_actions) && parsed.next_actions.length) {
+    lines.push('NEXT ACTION:')
+    for (const item of parsed.next_actions) lines.push(`- ${item}`)
+  }
+
+  return lines.join('\n')
 }
 
-function confidenceLabel(confidence: Confidence) {
-  if (confidence === 'high') return 'Cao'
-  if (confidence === 'low') return 'Thấp'
-  return 'Trung bình'
-}
-
-function verdictBand(score: number) {
-  if (score >= 8) return 'Rất đáng ưu tiên'
-  if (score >= 6.5) return 'Có tiềm năng, nên test'
-  if (score >= 5) return 'Có thể thử, nhưng chưa mạnh'
-  return 'Khả năng bán thấp'
-}
-
-function scoreTone(score: number) {
-  if (score >= 8) return 'text-emerald-700 bg-emerald-50 border-emerald-200'
-  if (score >= 6.5) return 'text-sky-700 bg-sky-50 border-sky-200'
-  if (score >= 5) return 'text-amber-700 bg-amber-50 border-amber-200'
-  return 'text-rose-700 bg-rose-50 border-rose-200'
-}
-
-function DetailSection({ title, items }: { title: string; items: string[] }) {
+function renderBullets(items: string[]) {
+  if (!items.length) return <p className="text-sm text-slate-400">Không có dữ liệu.</p>
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-      {items.length > 0 ? (
-        <ul className="mt-3 space-y-2 text-sm text-slate-700">
-          {items.map((item, index) => (
-            <li key={`${title}-${index}`} className="flex gap-2">
-              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
-              <span>{item}</span>
-            </li>
+    <ul className="space-y-1 text-sm text-slate-700">
+      {items.map((item, index) => (
+        <li key={`${item}-${index}`} className="flex gap-2">
+          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function AiStructuredReport({ data }: { data: any }) {
+  const score = Number(data.overall_score ?? 0)
+  const assumptions = asArray(data.assumptions)
+  const redFlags = asArray(data.red_flags)
+  const nextActions = asArray(data.next_actions)
+  const scoreTable = Array.isArray(data.score_table) ? data.score_table : []
+  const similarProducts = Array.isArray(data.similar_products) ? data.similar_products : []
+  const angleTable = Array.isArray(data.angle_table) ? data.angle_table : []
+  const decisionTable = Array.isArray(data.decision_table) ? data.decision_table : []
+  const detailSections = Array.isArray(data.detail_sections) ? data.detail_sections : []
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">AI hiểu sản phẩm</p>
+          <p className="mt-2 text-sm font-medium text-slate-900">{data.detected_product || '—'}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Kết luận nhanh</p>
+          <p className="mt-2 text-sm font-medium text-slate-900">{data.quick_verdict || '—'}</p>
+        </div>
+        <div className={`rounded-xl border p-4 ${scoreClass(score)}`}>
+          <p className="text-xs font-semibold uppercase tracking-wide">Tổng điểm</p>
+          <p className="mt-2 text-3xl font-bold">{Number.isFinite(score) ? score.toFixed(1) : '—'}/10</p>
+          <p className="mt-1 text-sm font-semibold">{data.final_decision || '—'}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mức tin cậy</p>
+          <p className="mt-2 text-sm font-semibold text-slate-900">{data.confidence || '—'}</p>
+          {data.tool_label && <p className="mt-1 text-xs text-slate-500">{data.tool_label}</p>}
+        </div>
+      </div>
+
+      {scoreTable.length > 0 && (
+        <section className="overflow-hidden rounded-xl border border-slate-200">
+          <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+            <h3 className="text-sm font-semibold text-slate-900">Bảng chấm điểm</h3>
+            <p className="mt-1 text-xs text-slate-500">Chấm theo từng tiêu chí rồi mới tính tổng điểm. AI được yêu cầu đánh giá bảo thủ, không nịnh.</p>
+          </div>
+          <div className="overflow-auto">
+            <table className="min-w-full border-separate border-spacing-0 text-sm">
+              <thead className="bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                <tr>
+                  <th className="border-b border-slate-200 px-3 py-2">Tiêu chí</th>
+                  <th className="border-b border-slate-200 px-3 py-2 text-center">Điểm /10</th>
+                  <th className="border-b border-slate-200 px-3 py-2 text-center">Trọng số</th>
+                  <th className="border-b border-slate-200 px-3 py-2 text-center">Quy đổi</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Nhận xét</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scoreTable.map((row: any, index: number) => {
+                  const rowScore = Number(row.score ?? 0)
+                  return (
+                    <tr key={`${row.criterion}-${index}`}>
+                      <td className="border-b border-slate-100 px-3 py-2 font-medium text-slate-800">{row.criterion}</td>
+                      <td className="border-b border-slate-100 px-3 py-2 text-center">
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${scoreClass(rowScore)}`}>
+                          {Number.isFinite(rowScore) ? rowScore.toFixed(1) : '—'}
+                        </span>
+                      </td>
+                      <td className="border-b border-slate-100 px-3 py-2 text-center text-slate-600">{row.weight}%</td>
+                      <td className="border-b border-slate-100 px-3 py-2 text-center font-medium text-slate-700">{Number(row.weighted_score ?? 0).toFixed(2)}</td>
+                      <td className="border-b border-slate-100 px-3 py-2 text-slate-700">{row.comment}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {similarProducts.length > 0 && (
+        <section className="overflow-hidden rounded-xl border border-slate-200">
+          <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+            <h3 className="text-sm font-semibold text-slate-900">Sản phẩm tương tự / đối thủ cần kiểm tra</h3>
+          </div>
+          <div className="overflow-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                <tr>
+                  <th className="border-b border-slate-200 px-3 py-2">Sản phẩm</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Nền tảng</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Giá</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Điểm mạnh</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Điểm yếu</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Cơ hội khác biệt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {similarProducts.map((item: any, index: number) => (
+                  <tr key={`${item.product_name}-${index}`}>
+                    <td className="border-b border-slate-100 px-3 py-2 font-medium text-slate-800">{item.product_name || item.link_or_search_hint || '—'}</td>
+                    <td className="border-b border-slate-100 px-3 py-2 text-slate-700">{item.platform || '—'}</td>
+                    <td className="border-b border-slate-100 px-3 py-2 text-slate-700">{item.price_range || '—'}</td>
+                    <td className="border-b border-slate-100 px-3 py-2 text-slate-700">{item.strength || '—'}</td>
+                    <td className="border-b border-slate-100 px-3 py-2 text-slate-700">{item.weakness || '—'}</td>
+                    <td className="border-b border-slate-100 px-3 py-2 text-slate-700">{item.differentiation_chance || item.link_or_search_hint || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {angleTable.length > 0 && (
+        <section className="overflow-hidden rounded-xl border border-slate-200">
+          <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+            <h3 className="text-sm font-semibold text-slate-900">Content / Ads angle</h3>
+          </div>
+          <div className="overflow-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                <tr>
+                  <th className="border-b border-slate-200 px-3 py-2">Loại angle</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Hook</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Visual</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Vì sao có thể hiệu quả</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Rủi ro</th>
+                </tr>
+              </thead>
+              <tbody>
+                {angleTable.map((item: any, index: number) => (
+                  <tr key={`${item.angle_type}-${index}`}>
+                    <td className="border-b border-slate-100 px-3 py-2 font-medium text-slate-800">{item.angle_type || '—'}</td>
+                    <td className="border-b border-slate-100 px-3 py-2 text-slate-700">{item.hook || '—'}</td>
+                    <td className="border-b border-slate-100 px-3 py-2 text-slate-700">{item.visual_idea || '—'}</td>
+                    <td className="border-b border-slate-100 px-3 py-2 text-slate-700">{item.why_it_might_work || '—'}</td>
+                    <td className="border-b border-slate-100 px-3 py-2 text-slate-700">{item.risk || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {decisionTable.length > 0 && (
+        <section className="overflow-hidden rounded-xl border border-slate-200">
+          <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+            <h3 className="text-sm font-semibold text-slate-900">Đề xuất quyết định</h3>
+          </div>
+          <table className="min-w-full text-sm">
+            <tbody>
+              {decisionTable.map((item: any, index: number) => (
+                <tr key={`${item.field}-${index}`}>
+                  <td className="w-48 border-b border-slate-100 bg-slate-50 px-3 py-2 font-medium text-slate-700">{item.field}</td>
+                  <td className="border-b border-slate-100 px-3 py-2 text-slate-800">{item.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="rounded-xl border border-slate-200 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-slate-900">Red flags</h3>
+          {renderBullets(redFlags)}
+        </section>
+        <section className="rounded-xl border border-slate-200 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-slate-900">Next action</h3>
+          {renderBullets(nextActions)}
+        </section>
+      </div>
+
+      {assumptions.length > 0 && (
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-amber-800">Giả định / dữ liệu thiếu</h3>
+          {renderBullets(assumptions)}
+        </section>
+      )}
+
+      {detailSections.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {detailSections.map((section: any, index: number) => (
+            <section key={`${section.title}-${index}`} className="rounded-xl border border-slate-200 p-4">
+              <h3 className="mb-3 text-sm font-semibold text-slate-900">{section.title}</h3>
+              {renderBullets(asArray(section.bullets))}
+            </section>
           ))}
-        </ul>
-      ) : (
-        <p className="mt-3 text-sm text-slate-400">Chưa có dữ liệu.</p>
+        </div>
       )}
     </div>
   )
@@ -104,30 +287,16 @@ export function AiReportModal({
   latestReport,
   onClose,
   onRegenerate,
+  regenerateLabel,
 }: AiReportModalProps) {
   if (!open) return null
 
   const text = report || latestReport?.report_markdown || ''
-  const structured = useMemo(() => parseStructuredReport(text), [text])
+  const parsed = parseAiReport(text)
 
   async function copyReport() {
-    if (structured) {
-      const lines = [
-        `AI report: ${structured.product_summary.idea_name}`,
-        `AI hiểu sản phẩm: ${structured.product_summary.detected_product}`,
-        `Kết luận nhanh: ${structured.product_summary.quick_verdict}`,
-        `Tổng điểm: ${structured.product_summary.overall_score}/10`,
-        '',
-        ...structured.score_table.map(
-          (row) => `${row.criterion}: ${row.score}/10 | trọng số ${row.weight}% | ${row.summary}`,
-        ),
-      ]
-      await navigator.clipboard.writeText(lines.join('\n'))
-      return
-    }
-
     if (!text) return
-    await navigator.clipboard.writeText(text)
+    await navigator.clipboard.writeText(formatCopyText(parsed, text))
   }
 
   return (
@@ -135,7 +304,7 @@ export function AiReportModal({
       <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Tự động phân tích</h2>
+            <h2 className="text-lg font-semibold text-slate-900">AI kiểm tra</h2>
             <p className="mt-1 text-sm text-slate-500">{title}</p>
             {latestReport && !loading && (
               <p className="mt-1 text-xs text-slate-400">
@@ -155,136 +324,19 @@ export function AiReportModal({
         <div className="flex-1 overflow-auto px-5 py-4">
           {loading && (
             <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              AI đang chấm điểm từng tiêu chí, tính tổng điểm /10 và trả về bảng phân tích. Có thể mất 15–60 giây.
+              AI đang kiểm tra idea. Hệ thống sẽ tự đọc dữ liệu hiện có, đánh giá bảo thủ và trả kết quả dạng bảng. Có thể mất 15–60 giây.
             </div>
           )}
 
           {error && (
-            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
-          )}
-
-          {!loading && !error && structured && (
-            <div className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">AI hiểu sản phẩm</p>
-                  <p className="mt-2 text-sm font-medium text-slate-900">{structured.product_summary.detected_product}</p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Kết luận nhanh</p>
-                  <p className="mt-2 text-sm font-medium text-slate-900">{structured.product_summary.quick_verdict}</p>
-                </div>
-                <div
-                  className={`rounded-xl border p-4 ${scoreTone(structured.product_summary.overall_score)}`}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide">Tổng điểm</p>
-                  <p className="mt-2 text-2xl font-bold">{structured.product_summary.overall_score.toFixed(1)}/10</p>
-                  <p className="mt-1 text-xs font-medium">{verdictBand(structured.product_summary.overall_score)}</p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mức tin cậy</p>
-                  <p className="mt-2 text-sm font-medium text-slate-900">
-                    {confidenceLabel(structured.product_summary.confidence)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-                  <h3 className="text-sm font-semibold text-slate-900">Bảng chấm điểm chi tiết</h3>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Chấm theo từng tiêu chí rồi mới tính tổng điểm /10. AI được yêu cầu đánh giá bảo thủ, không nịnh.
-                  </p>
-                </div>
-                <div className="overflow-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-100 text-slate-700">
-                      <tr>
-                        <th className="border-b border-slate-200 px-3 py-2 text-left">Tiêu chí</th>
-                        <th className="border-b border-slate-200 px-3 py-2 text-center">Điểm /10</th>
-                        <th className="border-b border-slate-200 px-3 py-2 text-center">Trọng số</th>
-                        <th className="border-b border-slate-200 px-3 py-2 text-center">Điểm quy đổi</th>
-                        <th className="border-b border-slate-200 px-3 py-2 text-left">Nhận xét ngắn</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {structured.score_table.map((row) => (
-                        <tr key={row.criterion} className="align-top odd:bg-white even:bg-slate-50/60">
-                          <td className="border-b border-slate-200 px-3 py-2 font-medium text-slate-900">{row.criterion}</td>
-                          <td className="border-b border-slate-200 px-3 py-2 text-center">
-                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${scoreTone(row.score)}`}>
-                              {row.score.toFixed(1)}
-                            </span>
-                          </td>
-                          <td className="border-b border-slate-200 px-3 py-2 text-center text-slate-700">{row.weight}%</td>
-                          <td className="border-b border-slate-200 px-3 py-2 text-center font-medium text-slate-900">
-                            {row.weighted_score.toFixed(2)}
-                          </td>
-                          <td className="border-b border-slate-200 px-3 py-2 text-slate-700">{row.summary}</td>
-                        </tr>
-                      ))}
-                      <tr className="bg-slate-100/80 font-semibold text-slate-900">
-                        <td className="px-3 py-2">Tổng</td>
-                        <td className="px-3 py-2 text-center">—</td>
-                        <td className="px-3 py-2 text-center">100%</td>
-                        <td className="px-3 py-2 text-center">{structured.product_summary.overall_score.toFixed(2)}</td>
-                        <td className="px-3 py-2">{verdictBand(structured.product_summary.overall_score)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="grid gap-4 xl:grid-cols-2">
-                <DetailSection title="Khách hàng mục tiêu" items={structured.details.target_customer} />
-                <DetailSection title="Pain point" items={structured.details.pain_point} />
-                <DetailSection title="Thị trường / mùa vụ" items={structured.details.market_seasonality} />
-                <DetailSection title="USP" items={structured.details.usp} />
-                <DetailSection title="Content angle" items={structured.details.content_angle} />
-                <DetailSection title="Ads angle" items={structured.details.ads_angle} />
-                <DetailSection title="Giá / bundle / upsell" items={structured.details.pricing_bundle_upsell} />
-                <DetailSection title="Rủi ro" items={structured.details.risks} />
-                <DetailSection title="Next action" items={structured.details.next_action} />
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h3 className="text-sm font-semibold text-slate-900">Giả định & cảnh báo</h3>
-                  <div className="mt-3 space-y-3 text-sm text-slate-700">
-                    <div>
-                      <p className="font-medium text-slate-900">Giả định</p>
-                      {structured.product_summary.assumptions.length > 0 ? (
-                        <ul className="mt-2 space-y-2">
-                          {structured.product_summary.assumptions.map((item, index) => (
-                            <li key={`assumption-${index}`} className="flex gap-2">
-                              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-2 text-slate-400">Không có giả định đáng kể.</p>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-900">Red flags</p>
-                      {structured.product_summary.red_flags.length > 0 ? (
-                        <ul className="mt-2 space-y-2">
-                          {structured.product_summary.red_flags.map((item, index) => (
-                            <li key={`flag-${index}`} className="flex gap-2 text-rose-700">
-                              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-2 text-slate-400">Chưa có cảnh báo đỏ nổi bật.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
             </div>
           )}
 
-          {!loading && !error && !structured && text && (
+          {!loading && !error && parsed && <AiStructuredReport data={parsed} />}
+
+          {!loading && !error && !parsed && text && (
             <pre className="whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-800">
               {text}
             </pre>
@@ -312,7 +364,7 @@ export function AiReportModal({
               disabled={loading}
               className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
             >
-              {loading ? 'Đang phân tích...' : text ? 'Phân tích lại' : 'Tự động phân tích'}
+              {loading ? 'Đang kiểm tra...' : regenerateLabel || (text ? 'Chạy lại' : 'AI kiểm tra')}
             </button>
           )}
         </div>
