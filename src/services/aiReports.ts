@@ -2,6 +2,46 @@ import { supabase } from '../lib/supabase'
 import type { AiReport } from '../types'
 
 export type AiAnalysisType = 'similar_products' | 'quick_score' | 'angles' | 'decision'
+export type AiModelProfile = 'stable' | 'cheap' | 'balanced' | 'strong' | 'research'
+
+
+export const AI_MODEL_PROFILES: Array<{
+  profile: AiModelProfile
+  label: string
+  shortLabel: string
+  recommendedFor: string
+}> = [
+  {
+    profile: 'stable',
+    label: 'Ổn định - GPT-4.1 mini',
+    shortLabel: 'Ổn định',
+    recommendedFor: 'Câu thường: chấm nhanh, angle, quyết định. Ít lỗi nhất.',
+  },
+  {
+    profile: 'cheap',
+    label: 'Nhẹ - GPT-5.6 Luna',
+    shortLabel: 'Nhẹ',
+    recommendedFor: 'Chạy nhiều idea, không cần web search.',
+  },
+  {
+    profile: 'balanced',
+    label: 'Cân bằng - GPT-5 mini',
+    shortLabel: 'Cân bằng',
+    recommendedFor: 'Idea khá quan trọng, cần phân tích tốt hơn bản ổn định.',
+  },
+  {
+    profile: 'strong',
+    label: 'Mạnh - GPT-5.6 Terra',
+    shortLabel: 'Mạnh',
+    recommendedFor: 'Idea quan trọng, cần đánh giá sâu nhưng chưa cần tìm thị trường.',
+  },
+  {
+    profile: 'research',
+    label: 'Research - GPT-5.6 Terra + web search',
+    shortLabel: 'Research',
+    recommendedFor: 'Dùng cho Tìm sản phẩm tương tự. Có thể chậm hơn và tốn hơn.',
+  },
+]
 
 export const AI_ANALYSIS_TOOLS: Array<{ type: AiAnalysisType; label: string; shortLabel: string; description: string }> = [
   {
@@ -34,6 +74,8 @@ export interface AnalyzeIdeaInput {
   sourceType: 'idea' | 'saved_idea'
   idea: Record<string, unknown>
   analysisType?: AiAnalysisType
+  modelProfile?: AiModelProfile
+  modelProfileLabel?: string
 }
 
 export interface AnalyzeIdeaResult {
@@ -45,6 +87,8 @@ export interface AnalyzeIdeaResult {
   productPageTextAvailable?: boolean
   warning?: string
   analysisType?: AiAnalysisType
+  modelProfile?: AiModelProfile
+  modelProfileLabel?: string
 }
 
 export function parseAiReport(report: string | null | undefined): any | null {
