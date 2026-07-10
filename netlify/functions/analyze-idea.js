@@ -323,7 +323,7 @@ function normalizeReport(raw, { idea, analysisType, model, productPageTextAvaila
 
 function buildPrompt({ idea, sourceType, productPageText, analysisType, useWebSearch }) {
   const tool = ANALYSIS_TYPES[analysisType] || ANALYSIS_TYPES.quick_score
-  return `Bạn là chuyên gia product research, ecommerce growth, creative strategy và market validation cho thị trường US.
+  return `Bạn là chuyên gia product research, ecommerce growth, creative strategy và market validation cho THỊ TRƯỜNG US.
 
 NHIỆM VỤ ĐANG CHẠY: ${tool.label}
 MỤC TIÊU: ${tool.description}
@@ -334,7 +334,20 @@ ${JSON.stringify({ sourceType, ...idea }, null, 2)}
 NỘI DUNG ĐỌC ĐƯỢC TỪ LINK SẢN PHẨM, NẾU CÓ:
 ${productPageText || 'Không đọc được hoặc chưa có link sản phẩm.'}
 
-WEB SEARCH: ${useWebSearch ? 'Có thể dùng web search nếu tool khả dụng.' : 'Không bật web search. Nếu thiếu dữ liệu thị trường, phải ghi rõ là suy luận và giảm confidence.'}
+WEB SEARCH: ${useWebSearch ? 'Được phép dùng web search nếu tool khả dụng. Khi tìm sản phẩm tương tự, phải ưu tiên thị trường US và các nguồn bên dưới.' : 'Không bật web search. Nếu thiếu dữ liệu thị trường, phải ghi rõ là suy luận và giảm confidence.'}
+
+THỊ TRƯỜNG VÀ NGUỒN SO SÁNH BẮT BUỘC:
+- Market mặc định: United States / US buyers.
+- Nếu analysis_type là similar_products, hãy tìm hoặc suy luận sản phẩm tương tự theo thứ tự ưu tiên:
+  1. Etsy: ưu tiên cho personalized gift, handmade, decor, POD, custom product.
+  2. Amazon: ưu tiên cho mass-market, phụ kiện phổ thông, sản phẩm có review/giá tham khảo.
+  3. TikTok Shop: ưu tiên sản phẩm impulse-buy, trend, dễ làm short-form video.
+  4. MakerWorld / Printables: ưu tiên nếu idea liên quan 3D print, file in 3D, decor/prototype in 3D.
+  5. Shopify / DTC stores: tham khảo nếu có brand nhỏ đang bán trực tiếp.
+  6. Pinterest: tham khảo visual trend, aesthetic, content direction.
+- Không được bịa link thật. Nếu không chắc URL thật, điền search keyword vào link_or_search_hint, ví dụ: "Search Etsy: personalized sunglasses case".
+- similar_products nên có 5-8 dòng, mỗi dòng ghi rõ platform, price_range, strength, weakness, differentiation_chance.
+- Nếu không tìm đủ dữ liệu thật, phải ghi vào assumptions và giảm confidence.
 
 NGUYÊN TẮC BẮT BUỘC:
 - Trả về JSON hợp lệ, không markdown, không code fence.
@@ -342,9 +355,9 @@ NGUYÊN TẮC BẮT BUỘC:
 - Nếu idea yếu, USP yếu, rủi ro IP/cạnh tranh cao hoặc khó bán, phải nói thẳng.
 - Nếu thiếu dữ liệu, ghi vào assumptions và hạ confidence/điểm.
 - Đánh giá bảo thủ. Sếp cần biết có đáng test không, không cần lời khen.
-- Nếu analysis_type là similar_products, ưu tiên trả về bảng similar_products có 5-8 sản phẩm/nhóm sản phẩm tương tự. Nếu không có web search, ghi search hint thay vì bịa link.
+- Nếu analysis_type là similar_products, similar_products là phần quan trọng nhất và phải bám theo nguồn ưu tiên US ở trên.
 - Nếu analysis_type là quick_score, score_table là phần quan trọng nhất.
-- Nếu analysis_type là angles, angle_table là phần quan trọng nhất.
+- Nếu analysis_type là angles, angle_table là phần quan trọng nhất; angle nên thực dụng cho Facebook/TikTok ads và organic content.
 - Nếu analysis_type là decision, decision_table và final_decision là phần quan trọng nhất.
 
 TIÊU CHÍ CHẤM ĐIỂM VÀ TRỌNG SỐ:
