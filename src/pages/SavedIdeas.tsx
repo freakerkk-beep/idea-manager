@@ -65,7 +65,7 @@ export function SavedIdeas() {
     loading: boolean
     error: string | null
     analysisType: AiAnalysisType
-  }>({ open: false, idea: null, report: '', loading: false, error: null, analysisType: 'quick_score' })
+  }>({ open: false, idea: null, report: '', loading: false, error: null, analysisType: 'decision' })
   const [runningAiKey, setRunningAiKey] = useState<string | null>(null)
   const [aiModelProfile, setAiModelProfile] = useState<AiModelProfile>('stable')
 
@@ -143,7 +143,7 @@ export function SavedIdeas() {
     }
   }
 
-  async function handleAnalyzeIdea(idea: SavedIdea, analysisType: AiAnalysisType = 'quick_score') {
+  async function handleAnalyzeIdea(idea: SavedIdea, analysisType: AiAnalysisType = 'decision') {
     if (!idea.name.trim()) {
       showToast('Hãy nhập tên idea trước khi dùng AI', 'error')
       return
@@ -188,7 +188,7 @@ export function SavedIdeas() {
     }
   }
 
-  function openLatestAiReport(idea: SavedIdea, analysisType: AiAnalysisType = 'quick_score') {
+  function openLatestAiReport(idea: SavedIdea, analysisType: AiAnalysisType = 'decision') {
     const latest = latestReportFor(idea.id, analysisType)
     setAiModal({
       open: true,
@@ -467,7 +467,12 @@ export function SavedIdeas() {
                           type="button"
                           onClick={(event) => {
                             event.currentTarget.closest('details')?.removeAttribute('open')
-                            openLatestAiReport(idea, getAiReportType(latestReportBySavedIdeaId.get(idea.id)) === 'legacy' ? 'quick_score' : (getAiReportType(latestReportBySavedIdeaId.get(idea.id)) as AiAnalysisType || 'quick_score'))
+                            openLatestAiReport(idea, (() => {
+                              const reportType = getAiReportType(latestReportBySavedIdeaId.get(idea.id))
+                              return reportType === 'similar_products' || reportType === 'angles' || reportType === 'decision'
+                                ? reportType
+                                : 'decision'
+                            })())
                           }}
                           className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-left text-xs font-semibold text-indigo-600 hover:bg-indigo-50"
                         >
@@ -505,7 +510,7 @@ export function SavedIdeas() {
         loading={aiModal.loading}
         error={aiModal.error}
         latestReport={aiModal.idea ? latestReportFor(aiModal.idea.id, aiModal.analysisType) : null}
-        onClose={() => setAiModal({ open: false, idea: null, report: '', loading: false, error: null, analysisType: 'quick_score' })}
+        onClose={() => setAiModal({ open: false, idea: null, report: '', loading: false, error: null, analysisType: 'decision' })}
         onRegenerate={aiModal.idea ? () => handleAnalyzeIdea(aiModal.idea as SavedIdea, aiModal.analysisType) : undefined}
         regenerateLabel={AI_ANALYSIS_TOOLS.find((tool) => tool.type === aiModal.analysisType)?.label}
       />
