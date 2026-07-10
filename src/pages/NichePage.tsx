@@ -63,6 +63,7 @@ export function NichePage() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [focusIdeaId, setFocusIdeaId] = useState<string | null>(null)
   const [isAddingIdea, setIsAddingIdea] = useState(false)
+  const [analyzingIdeaId, setAnalyzingIdeaId] = useState<string | null>(null)
   const [aiModal, setAiModal] = useState<{
     open: boolean
     idea: Idea | null
@@ -181,6 +182,9 @@ export function NichePage() {
       return
     }
 
+    if (analyzingIdeaId) return
+
+    setAnalyzingIdeaId(idea.id)
     setAiModal({ open: true, idea, report: '', loading: true, error: null })
     try {
       const result = await analyzeIdeaWithOpenAI({ sourceType: 'idea', idea: buildAiPayload(idea) })
@@ -195,7 +199,11 @@ export function NichePage() {
       })
       await refetchAiReports()
       setAiModal({ open: true, idea, report: result.report, loading: false, error: null })
-      showToast('Đã phân tích tự động', 'success')
+      if (result.warning) {
+        showToast(`Đã phân tích xong. Lưu ý: ${result.warning}`, 'success')
+      } else {
+        showToast('Đã phân tích tự động', 'success')
+      }
     } catch (e) {
       setAiModal({
         open: true,
@@ -204,6 +212,9 @@ export function NichePage() {
         loading: false,
         error: e instanceof Error ? e.message : 'Không thể phân tích AI',
       })
+      showToast(e instanceof Error ? e.message : 'Không thể phân tích AI', 'error')
+    } finally {
+      setAnalyzingIdeaId(null)
     }
   }
 
@@ -488,10 +499,11 @@ export function NichePage() {
                     <div className="flex flex-col items-center gap-1">
                       <button
                         onClick={() => handleAnalyzeIdea(idea)}
-                        className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+                        disabled={Boolean(analyzingIdeaId)}
+                        className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60"
                         title="Tự động đọc link, nhận diện sản phẩm, phân tích thị trường và gợi ý chiến lược bán hàng"
                       >
-                        Tự động phân tích
+                        {analyzingIdeaId === idea.id ? 'Đang phân tích...' : 'Tự động phân tích'}
                       </button>
                       {latestReportByIdeaId.has(idea.id) && (
                         <button
