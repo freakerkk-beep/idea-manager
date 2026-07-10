@@ -1,6 +1,18 @@
 const MAX_PRODUCT_TEXT = 9000
 const DEFAULT_MODEL = 'gpt-5-mini'
 
+const CRITERIA = [
+  { key: 'Khách hàng mục tiêu', weight: 10, detailsKey: 'target_customer' },
+  { key: 'Pain point', weight: 15, detailsKey: 'pain_point' },
+  { key: 'Thị trường / mùa vụ', weight: 10, detailsKey: 'market_seasonality' },
+  { key: 'USP', weight: 15, detailsKey: 'usp' },
+  { key: 'Content angle', weight: 10, detailsKey: 'content_angle' },
+  { key: 'Ads angle', weight: 10, detailsKey: 'ads_angle' },
+  { key: 'Giá / bundle / upsell', weight: 10, detailsKey: 'pricing_bundle_upsell' },
+  { key: 'Rủi ro', weight: 10, detailsKey: 'risks' },
+  { key: 'Next action', weight: 10, detailsKey: 'next_action' },
+]
+
 function json(statusCode, body) {
   return {
     statusCode,
@@ -75,39 +87,207 @@ function extractOutputText(data) {
   return chunks.join('\n').trim()
 }
 
-function extractScore(text) {
-  const patterns = [
-    /điểm\s*tiềm\s*năng\s*[:：-]?\s*(\d{1,2})\s*\/\s*10/i,
-    /potential\s*score\s*[:：-]?\s*(\d{1,2})\s*\/\s*10/i,
-    /score\s*[:：-]?\s*(\d{1,2})\s*\/\s*10/i,
-  ]
-  for (const pattern of patterns) {
-    const match = text.match(pattern)
-    if (match) {
-      const score = Number(match[1])
-      if (Number.isFinite(score)) return Math.max(0, Math.min(10, score))
-    }
-  }
-  return null
+function cleanList(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter(Boolean)
+    .slice(0, 8)
+}
+
+function clampScore(value) {
+  const score = Number(value)
+  if (!Number.isFinite(score)) return 0
+  return Math.max(0, Math.min(10, Math.round(score * 10) / 10))
 }
 
 function buildPrompt({ idea, sourceType, productPageText }) {
-  return `Phân tích idea sản phẩm ecommerce này bằng tiếng Việt.\n\nDỮ LIỆU IDEA:\n${JSON.stringify({ sourceType, ...idea }, null, 2)}\n\nNỘI DUNG ĐỌC ĐƯỢC TỪ LINK SẢN PHẨM, NẾU CÓ:\n${productPageText || 'Không đọc được hoặc chưa có link sản phẩm.'}\n\nYÊU CẦU OUTPUT:\n- Không yêu cầu người dùng nhập riêng trường “sản phẩm là gì”. Hãy tự nhận diện sản phẩm từ tên idea, link sản phẩm, niche, niche con, loại sản phẩm và ghi chú.\n- Nếu link không đọc được, tự suy luận sản phẩm hợp lý từ dữ liệu còn lại và ghi rõ giả định.\n- Viết dạng Markdown, rõ ý, dễ hành động.\n- Đưa ra nhận định thực tế, không nói chung chung.\n- Ưu tiên góc nhìn bán hàng US market cho POD, dropship, personalized gift, 3D printed decor nếu phù hợp.\n- Nếu có dùng thông tin thị trường/web search, tóm tắt bằng ngôn ngữ của bạn, không chèn link dài.\n\nFORMAT BẮT BUỘC:
-# AI Report: [Tên idea]
+  return `Bạn là chuyên gia product research và ecommerce strategy cho DTC / POD / personalized gifts / dropship.
 
-**Điểm tiềm năng:** X/10
-**AI hiểu sản phẩm là:** [tự suy luận ngắn gọn từ idea/link/niche, không hỏi người dùng nhập thêm]
+NHIỆM VỤ:
+Phân tích idea này một cách trung thực, bảo thủ và không nịnh. Mục tiêu là giúp người dùng biết sản phẩm có khả năng bán được hay không.
 
-## 1. Khách hàng mục tiêu
-## 2. Pain point
-## 3. Thị trường / mùa vụ
-## 4. USP
-## 5. Content angle
-## 6. Ads angle
-## 7. Giá / bundle / upsell
-## 8. Rủi ro
-## 9. Next action
-`
+DỮ LIỆU IDEA:
+${JSON.stringify({ sourceType, ...idea }, null, 2)}
+
+NỘI DUNG ĐỌC ĐƯỢC TỪ LINK SẢN PHẨM, NẾU CÓ:
+${productPageText || 'Không đọc được hoặc chưa có link sản phẩm.'}
+
+QUY TẮC BẮT BUỘC:
+- Tuyệt đối không nịnh.
+- Không dùng ngôn ngữ PR.
+- Nếu dữ liệu yếu hoặc thiếu, phải ghi rõ giả định và giảm điểm tương ứng.
+- Nếu sản phẩm khó bán, phải nói thẳng là khó bán.
+- Nếu link không đọc được, vẫn phải tự suy luận sản phẩm từ tên idea, niche, niche con, loại sản phẩm, ghi chú.
+- Điểm từng tiêu chí theo thang 0-10.
+- Tổng điểm cuối phải được tính từ các trọng số.
+- Chỉ trả về JSON hợp lệ, không markdown, không prose ngoài JSON.
+
+TRỌNG SỐ:
+- Khách hàng mục tiêu: 10
+- Pain point: 15
+- Thị trường / mùa vụ: 10
+- USP: 15
+- Content angle: 10
+- Ads angle: 10
+- Giá / bundle / upsell: 10
+- Rủi ro: 10
+- Next action: 10
+
+ĐỊNH NGHĨA NGẮN:
+- quick_verdict phải rất ngắn, kiểu: "Nên test", "Test có chọn lọc", "Khả năng bán thấp".
+- confidence chỉ nhận một trong ba giá trị: low, medium, high.
+- red_flags là danh sách các cảnh báo chính.
+- summary ở từng tiêu chí chỉ 1 câu ngắn.
+- details.* là các bullet cụ thể, ngắn gọn, hành động được.`
+}
+
+function buildResponseSchema() {
+  return {
+    name: 'idea_market_analysis',
+    strict: true,
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        product_summary: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            idea_name: { type: 'string' },
+            detected_product: { type: 'string' },
+            quick_verdict: { type: 'string' },
+            overall_score: { type: 'number' },
+            confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
+            assumptions: { type: 'array', items: { type: 'string' } },
+            red_flags: { type: 'array', items: { type: 'string' } },
+          },
+          required: ['idea_name', 'detected_product', 'quick_verdict', 'overall_score', 'confidence', 'assumptions', 'red_flags'],
+        },
+        score_table: {
+          type: 'array',
+          minItems: 9,
+          maxItems: 9,
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              criterion: {
+                type: 'string',
+                enum: CRITERIA.map((item) => item.key),
+              },
+              score: { type: 'number' },
+              weight: { type: 'number' },
+              weighted_score: { type: 'number' },
+              summary: { type: 'string' },
+            },
+            required: ['criterion', 'score', 'weight', 'weighted_score', 'summary'],
+          },
+        },
+        details: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            target_customer: { type: 'array', items: { type: 'string' } },
+            pain_point: { type: 'array', items: { type: 'string' } },
+            market_seasonality: { type: 'array', items: { type: 'string' } },
+            usp: { type: 'array', items: { type: 'string' } },
+            content_angle: { type: 'array', items: { type: 'string' } },
+            ads_angle: { type: 'array', items: { type: 'string' } },
+            pricing_bundle_upsell: { type: 'array', items: { type: 'string' } },
+            risks: { type: 'array', items: { type: 'string' } },
+            next_action: { type: 'array', items: { type: 'string' } },
+          },
+          required: [
+            'target_customer',
+            'pain_point',
+            'market_seasonality',
+            'usp',
+            'content_angle',
+            'ads_angle',
+            'pricing_bundle_upsell',
+            'risks',
+            'next_action',
+          ],
+        },
+      },
+      required: ['product_summary', 'score_table', 'details'],
+    },
+  }
+}
+
+function normalizeStructuredReport(parsed, fallbackIdeaName) {
+  const productSummary = parsed?.product_summary && typeof parsed.product_summary === 'object' ? parsed.product_summary : {}
+  const details = parsed?.details && typeof parsed.details === 'object' ? parsed.details : {}
+  const scoreMap = new Map(
+    Array.isArray(parsed?.score_table)
+      ? parsed.score_table
+          .filter((row) => row && typeof row === 'object' && typeof row.criterion === 'string')
+          .map((row) => [String(row.criterion), row])
+      : [],
+  )
+
+  const normalizedTable = CRITERIA.map((criterion) => {
+    const row = scoreMap.get(criterion.key) || {}
+    const score = clampScore(row.score)
+    const weight = criterion.weight
+    const weighted = Number.isFinite(Number(row.weighted_score))
+      ? Math.max(0, Math.min(10, Number(row.weighted_score)))
+      : Math.round((score * weight) / 100 * 100) / 100
+
+    return {
+      criterion: criterion.key,
+      score,
+      weight,
+      weighted_score: Math.round(weighted * 100) / 100,
+      summary: typeof row.summary === 'string' && row.summary.trim() ? row.summary.trim() : 'Chưa có nhận xét cụ thể.',
+    }
+  })
+
+  const totalFromTable = Math.round(normalizedTable.reduce((sum, row) => sum + row.weighted_score, 0) * 100) / 100
+  const overallScore = clampScore(productSummary.overall_score || totalFromTable)
+
+  return {
+    product_summary: {
+      idea_name:
+        typeof productSummary.idea_name === 'string' && productSummary.idea_name.trim()
+          ? productSummary.idea_name.trim()
+          : fallbackIdeaName,
+      detected_product:
+        typeof productSummary.detected_product === 'string' && productSummary.detected_product.trim()
+          ? productSummary.detected_product.trim()
+          : 'AI chưa suy luận rõ sản phẩm.',
+      quick_verdict:
+        typeof productSummary.quick_verdict === 'string' && productSummary.quick_verdict.trim()
+          ? productSummary.quick_verdict.trim()
+          : 'Cần xem lại dữ liệu trước khi quyết định.',
+      overall_score: overallScore,
+      confidence: ['low', 'medium', 'high'].includes(productSummary.confidence)
+        ? productSummary.confidence
+        : 'medium',
+      assumptions: cleanList(productSummary.assumptions),
+      red_flags: cleanList(productSummary.red_flags),
+    },
+    score_table: normalizedTable,
+    details: {
+      target_customer: cleanList(details.target_customer),
+      pain_point: cleanList(details.pain_point),
+      market_seasonality: cleanList(details.market_seasonality),
+      usp: cleanList(details.usp),
+      content_angle: cleanList(details.content_angle),
+      ads_angle: cleanList(details.ads_angle),
+      pricing_bundle_upsell: cleanList(details.pricing_bundle_upsell),
+      risks: cleanList(details.risks),
+      next_action: cleanList(details.next_action),
+    },
+  }
+}
+
+function verdictBand(score) {
+  if (score >= 8) return 'Rất đáng ưu tiên'
+  if (score >= 6.5) return 'Có tiềm năng, nên test'
+  if (score >= 5) return 'Có thể thử, nhưng chưa mạnh'
+  return 'Khả năng bán thấp'
 }
 
 async function callOpenAI({ idea, sourceType, productPageText, useWebSearch }) {
@@ -119,7 +299,7 @@ async function callOpenAI({ idea, sourceType, productPageText, useWebSearch }) {
     {
       role: 'system',
       content:
-        'Bạn là senior product research strategist và ecommerce growth strategist. Bạn phân tích sản phẩm, thị trường, customer insight, content angle, ads angle và sales strategy cho team R&D. Trả lời tiếng Việt, súc tích, hành động được.',
+        'Bạn là senior product research strategist và ecommerce growth strategist. Bạn đánh giá sản phẩm, thị trường, content angle, ads angle và khả năng bán hàng một cách trung thực, bảo thủ, không nịnh.',
     },
     {
       role: 'user',
@@ -130,12 +310,18 @@ async function callOpenAI({ idea, sourceType, productPageText, useWebSearch }) {
   const body = {
     model,
     input,
+    text: {
+      format: {
+        type: 'json_schema',
+        ...buildResponseSchema(),
+      },
+    },
   }
 
   if (String(model).startsWith('gpt-5')) {
     body.reasoning = { effort: process.env.OPENAI_REASONING_EFFORT || 'low' }
   } else {
-    body.temperature = 0.35
+    body.temperature = 0.2
   }
 
   if (useWebSearch) {
@@ -158,10 +344,26 @@ async function callOpenAI({ idea, sourceType, productPageText, useWebSearch }) {
     throw new Error(message)
   }
 
-  const report = extractOutputText(data)
-  if (!report) throw new Error('OpenAI không trả về nội dung phân tích.')
+  const raw = extractOutputText(data)
+  if (!raw) throw new Error('OpenAI không trả về nội dung phân tích.')
 
-  return { report, model, score: extractScore(report), usedWebSearch: useWebSearch }
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new Error('OpenAI trả về dữ liệu không đúng định dạng JSON.')
+  }
+
+  const structured = normalizeStructuredReport(parsed, idea.name || 'Idea chưa đặt tên')
+
+  return {
+    report: JSON.stringify(structured),
+    score: structured.product_summary.overall_score,
+    model,
+    usedWebSearch: useWebSearch,
+    productPageTextAvailable: Boolean(productPageText),
+    verdict: verdictBand(structured.product_summary.overall_score),
+  }
 }
 
 export const handler = async (event) => {
@@ -183,14 +385,12 @@ export const handler = async (event) => {
 
     try {
       const result = await callOpenAI({ idea, sourceType, productPageText, useWebSearch: wantsWebSearch })
-      return json(200, { ...result, productPageTextAvailable: Boolean(productPageText) })
+      return json(200, result)
     } catch (firstError) {
-      // Nếu web_search chưa được bật/hỗ trợ ở tài khoản, tự fallback sang gọi model thường.
       if (wantsWebSearch) {
         const fallback = await callOpenAI({ idea, sourceType, productPageText, useWebSearch: false })
         return json(200, {
           ...fallback,
-          productPageTextAvailable: Boolean(productPageText),
           warning: firstError instanceof Error ? firstError.message : 'Web search fallback',
         })
       }
