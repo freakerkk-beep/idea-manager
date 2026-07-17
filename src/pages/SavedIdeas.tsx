@@ -65,7 +65,7 @@ export function SavedIdeas() {
     loading: boolean
     error: string | null
     analysisType: AiAnalysisType
-  }>({ open: false, idea: null, report: '', loading: false, error: null, analysisType: 'decision' })
+  }>({ open: false, idea: null, report: '', loading: false, error: null, analysisType: 'amazon_listing' })
   const [runningAiKey, setRunningAiKey] = useState<string | null>(null)
   const [aiModelProfile, setAiModelProfile] = useState<AiModelProfile>('stable')
 
@@ -134,6 +134,9 @@ export function SavedIdeas() {
       sub_niche: idea.sub_niche_name ?? '',
       product_type: idea.product_type_name ?? '',
       product_url: idea.product_url ?? '',
+      product_image_url: idea.product_image_url ?? '',
+      product_height: idea.product_height ?? '',
+      product_weight: idea.product_weight ?? '',
       target_customer: idea.target_customer ?? '',
       priority: idea.priority,
       status: idea.status,
@@ -143,7 +146,7 @@ export function SavedIdeas() {
     }
   }
 
-  async function handleAnalyzeIdea(idea: SavedIdea, analysisType: AiAnalysisType = 'decision') {
+  async function handleAnalyzeIdea(idea: SavedIdea, analysisType: AiAnalysisType = 'amazon_listing') {
     if (!idea.name.trim()) {
       showToast('Hãy nhập tên idea trước khi dùng AI', 'error')
       return
@@ -173,14 +176,14 @@ export function SavedIdeas() {
       })
       await refetchAiReports()
       setAiModal({ open: true, idea, report: result.report, loading: false, error: null, analysisType })
-      showToast(`Đã chạy ${tool?.shortLabel ?? 'AI kiểm tra'}`, 'success')
+      showToast(`Đã chạy ${tool?.shortLabel ?? 'Amazon listing'}`, 'success')
     } catch (e) {
       setAiModal({
         open: true,
         idea,
         report: latestReportFor(idea.id, analysisType)?.report_markdown ?? '',
         loading: false,
-        error: e instanceof Error ? e.message : 'Không thể chạy AI kiểm tra',
+        error: e instanceof Error ? e.message : 'Không thể chạy Amazon listing',
         analysisType,
       })
     } finally {
@@ -188,7 +191,7 @@ export function SavedIdeas() {
     }
   }
 
-  function openLatestAiReport(idea: SavedIdea, analysisType: AiAnalysisType = 'decision') {
+  function openLatestAiReport(idea: SavedIdea, analysisType: AiAnalysisType = 'amazon_listing') {
     const latest = latestReportFor(idea.id, analysisType)
     setAiModal({
       open: true,
@@ -233,6 +236,9 @@ export function SavedIdeas() {
       'Niche con',
       'Loại sản phẩm',
       'Link sản phẩm',
+      'Ảnh sản phẩm',
+      'Chiều cao',
+      'Cân nặng',
       'Đối tượng khách hàng',
       'Mức độ ưu tiên',
       'Trạng thái',
@@ -246,6 +252,9 @@ export function SavedIdeas() {
       idea.sub_niche_name ?? '',
       idea.product_type_name ?? '',
       idea.product_url ?? '',
+      idea.product_image_url ?? '',
+      idea.product_height ?? '',
+      idea.product_weight ?? '',
       idea.target_customer ?? '',
       idea.priority,
       idea.status,
@@ -362,7 +371,7 @@ export function SavedIdeas() {
       </div>
 
       <div className="table-scroll flex-1 overflow-auto px-6 py-4">
-        <table className="idea-grid-table min-w-[1500px] border-separate border-spacing-0 text-sm">
+        <table className="idea-grid-table min-w-[1950px] border-separate border-spacing-0 text-sm">
           <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
             <tr>
               <th className="sticky top-0 w-10 border-b border-slate-200 bg-slate-100 px-2 py-2">
@@ -373,6 +382,9 @@ export function SavedIdeas() {
               <th className="sticky top-0 min-w-[130px] border-b border-slate-200 bg-slate-100 px-2 py-2">Niche con</th>
               <th className="sticky top-0 min-w-[130px] border-b border-slate-200 bg-slate-100 px-2 py-2">Loại sản phẩm</th>
               <th className="sticky top-0 min-w-[170px] border-b border-slate-200 bg-slate-100 px-2 py-2">Link sản phẩm</th>
+              <th className="sticky top-0 min-w-[160px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ảnh sản phẩm</th>
+              <th className="sticky top-0 min-w-[100px] border-b border-slate-200 bg-slate-100 px-2 py-2">Chiều cao</th>
+              <th className="sticky top-0 min-w-[100px] border-b border-slate-200 bg-slate-100 px-2 py-2">Cân nặng</th>
               <th className="sticky top-0 min-w-[140px] border-b border-slate-200 bg-slate-100 px-2 py-2">Đối tượng KH</th>
               <th className="sticky top-0 min-w-[120px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ưu tiên</th>
               <th className="sticky top-0 min-w-[140px] border-b border-slate-200 bg-slate-100 px-2 py-2">Trạng thái</th>
@@ -398,6 +410,18 @@ export function SavedIdeas() {
                   <UrlCell value={idea.product_url ?? ''} onCommit={(value) => commit(idea.id, { product_url: value })} />
                 </td>
                 <td className="px-1 py-1 align-top">
+                  <UrlCell value={idea.product_image_url ?? ''} onCommit={(value) => commit(idea.id, { product_image_url: value } as Partial<SavedIdea>)} />
+                  <div className="px-2 py-0.5 text-[11px] text-slate-400">Ảnh / mockup URL</div>
+                </td>
+                <td className="px-1 py-1 align-top">
+                  <TextCell value={idea.product_height ?? ''} onCommit={(value) => commit(idea.id, { product_height: value } as Partial<SavedIdea>)} />
+                  <div className="px-2 py-0.5 text-[11px] text-slate-400">VD: 12 cm</div>
+                </td>
+                <td className="px-1 py-1 align-top">
+                  <TextCell value={idea.product_weight ?? ''} onCommit={(value) => commit(idea.id, { product_weight: value } as Partial<SavedIdea>)} />
+                  <div className="px-2 py-0.5 text-[11px] text-slate-400">VD: 85 g</div>
+                </td>
+                <td className="px-1 py-1 align-top">
                   <TextCell value={idea.target_customer ?? ''} onCommit={(value) => commit(idea.id, { target_customer: value })} />
                 </td>
                 <td className="px-1 py-1 align-top">
@@ -419,12 +443,12 @@ export function SavedIdeas() {
                   <details className="group relative inline-block text-left">
                     <summary
                       className="cursor-pointer list-none rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 group-open:bg-indigo-700 [&::-webkit-details-marker]:hidden"
-                      title="Mở các công cụ AI dành cho vòng sếp lọc lại ở Idea đã lưu"
+                      title="Viết thông tin listing Amazon cho idea đã lưu"
                     >
-                      {runningAiKey?.startsWith(`${idea.id}:`) ? 'Đang kiểm tra...' : 'AI kiểm tra'}
+                      {runningAiKey?.startsWith(`${idea.id}:`) ? 'Đang viết...' : 'Amazon listing'}
                     </summary>
                     <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-2 text-left shadow-xl">
-                      <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Dùng cho vòng sếp duyệt</p>
+                      <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Dùng để điền listing Amazon</p>
                       <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 p-2" onClick={(event) => event.stopPropagation()}>
                         <label className="mb-1 block text-[11px] font-semibold text-slate-500">Chọn model cho lần hỏi này</label>
                         <select
@@ -469,9 +493,9 @@ export function SavedIdeas() {
                             event.currentTarget.closest('details')?.removeAttribute('open')
                             openLatestAiReport(idea, (() => {
                               const reportType = getAiReportType(latestReportBySavedIdeaId.get(idea.id))
-                              return reportType === 'similar_products' || reportType === 'angles' || reportType === 'decision'
+                              return reportType === 'amazon_listing'
                                 ? reportType
-                                : 'decision'
+                                : 'amazon_listing'
                             })())
                           }}
                           className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-left text-xs font-semibold text-indigo-600 hover:bg-indigo-50"
@@ -486,7 +510,7 @@ export function SavedIdeas() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={13} className="px-4 py-8 text-center text-sm text-slate-400">Chưa có idea nào được lưu.</td>
+                <td colSpan={16} className="px-4 py-8 text-center text-sm text-slate-400">Chưa có idea nào được lưu.</td>
               </tr>
             )}
           </tbody>
@@ -510,7 +534,7 @@ export function SavedIdeas() {
         loading={aiModal.loading}
         error={aiModal.error}
         latestReport={aiModal.idea ? latestReportFor(aiModal.idea.id, aiModal.analysisType) : null}
-        onClose={() => setAiModal({ open: false, idea: null, report: '', loading: false, error: null, analysisType: 'decision' })}
+        onClose={() => setAiModal({ open: false, idea: null, report: '', loading: false, error: null, analysisType: 'amazon_listing' })}
         onRegenerate={aiModal.idea ? () => handleAnalyzeIdea(aiModal.idea as SavedIdea, aiModal.analysisType) : undefined}
         regenerateLabel={AI_ANALYSIS_TOOLS.find((tool) => tool.type === aiModal.analysisType)?.label}
       />

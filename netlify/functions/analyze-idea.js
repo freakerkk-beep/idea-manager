@@ -1,62 +1,705 @@
-const MAX_PRODUCT_TEXT = 6000
+const MAX_PRODUCT_TEXT = 7000
 const DEFAULT_MODEL = 'gpt-4.1-mini'
 const DEFAULT_FALLBACK_MODEL = 'gpt-4.1-mini'
 
+const AMAZON_LISTING_PROMPT_TEMPLATE = `Bạn là chuyên gia nghiên cứu sản phẩm và tối ưu listing Amazon US, có kinh nghiệm với sản phẩm in 3D, đồ trang trí, quà tặng, phụ kiện bàn làm việc, fidget toys và sản phẩm cá nhân hóa.
+
+NHIỆM VỤ
+
+Phân tích sản phẩm từ đường link được cung cấp, ưu tiên các link từ MakerWorld, sau đó tạo đầy đủ thông tin có thể sử dụng để đăng bán sản phẩm vật lý trên Amazon US.
+
+Link sản phẩm:
+[PRODUCT_LINK]
+
+Thông tin bổ sung từ người dùng, nếu có:
+[ADDITIONAL_INFORMATION]
+
+QUY TẮC PHÂN TÍCH
+
+1. Hãy truy cập và phân tích toàn bộ thông tin có thể quan sát được từ trang sản phẩm, bao gồm:
+
+* Tên sản phẩm.
+* Hình ảnh sản phẩm.
+* Mô tả.
+* Cấu tạo.
+* Chức năng.
+* Mục đích sử dụng.
+* Phong cách thiết kế.
+* Đối tượng khách hàng.
+* File hoặc bộ phận đi kèm.
+* Vật liệu được đề xuất.
+* Thông số in 3D nếu có.
+* Kích thước nếu có.
+* Thông tin về tác giả hoặc giấy phép sử dụng.
+
+2. Đây là listing bán SẢN PHẨM VẬT LÝ ĐÃ ĐƯỢC IN 3D, không phải listing bán file STL, 3MF hoặc file thiết kế kỹ thuật số.
+
+3. Không được tự ý khẳng định những thông tin không xuất hiện trong nguồn.
+
+4. Với thông tin không có trên trang, có thể đưa ra đề xuất hợp lý nhưng bắt buộc phải ghi một trong các nhãn:
+
+* Xác nhận từ nguồn.
+* Suy luận từ hình ảnh.
+* Ước tính tham khảo.
+* Cần người bán xác nhận.
+
+5. Giá bán, kích thước, trọng lượng, thời gian sản xuất và chi phí chỉ được đưa dưới dạng tham khảo nếu chưa có dữ liệu chính xác.
+
+6. Không sao chép nguyên văn mô tả của tác giả. Hãy viết lại hoàn toàn theo hướng phù hợp với Amazon và tập trung vào lợi ích khách hàng.
+
+7. Không sử dụng các tuyên bố không thể chứng minh như:
+
+* Best.
+* Number one.
+* Guaranteed.
+* 100% safe.
+* Non-toxic.
+* Eco-friendly.
+* Unbreakable.
+* Official.
+* Licensed.
+
+Chỉ sử dụng khi nguồn cung cấp đủ bằng chứng và người bán xác nhận.
+
+8. Không đưa tên thương hiệu, nhân vật, đội thể thao, bộ phim, trò chơi, người nổi tiếng hoặc tài sản trí tuệ của bên thứ ba vào listing nếu chưa xác nhận quyền sử dụng.
+
+9. Nếu sản phẩm có dấu hiệu liên quan đến bản quyền, nhãn hiệu hoặc thiết kế được bảo hộ, hãy đưa ra cảnh báo rõ ràng.
+
+10. Nếu giấy phép trên MakerWorld không cho phép sử dụng thương mại hoặc không thể xác nhận quyền bán sản phẩm in vật lý, phải ghi:
+    “Cần kiểm tra giấy phép thương mại trước khi sản xuất và bán sản phẩm này.”
+
+11. Nếu sản phẩm có bộ phận nhỏ, nam châm, pin, đèn LED, cạnh nhọn, cơ cấu chuyển động hoặc có thể bị xem là đồ chơi trẻ em, phải liệt kê rủi ro tuân thủ và thông tin cần xác minh.
+
+12. Viết listing bằng tiếng Anh tự nhiên, hướng đến khách hàng Mỹ. Phần phân tích và giải thích viết bằng tiếng Việt.
+
+13. Không trình bày kết quả dưới dạng bảng. Trả lời bằng các tiêu đề và đoạn văn rõ ràng.
+
+PHẦN 1 — TÓM TẮT SẢN PHẨM
+
+Tên sản phẩm gốc:
+
+Tên sản phẩm đề xuất bằng tiếng Việt:
+
+Tên sản phẩm đề xuất bằng tiếng Anh:
+
+Sản phẩm này là gì:
+
+Chức năng chính:
+
+Lợi ích chính đối với khách hàng:
+
+Đối tượng khách hàng tiềm năng:
+
+Dịp sử dụng hoặc tặng quà:
+
+Phong cách sản phẩm:
+
+Vấn đề hoặc nhu cầu sản phẩm giải quyết:
+
+Điểm khác biệt có thể khai thác:
+
+PHẦN 2 — MỨC ĐỘ ĐẦY ĐỦ CỦA DỮ LIỆU
+
+Liệt kê riêng:
+
+Thông tin đã xác nhận từ nguồn:
+
+Thông tin suy luận từ hình ảnh:
+
+Thông tin đang được ước tính:
+
+Thông tin người bán cần xác nhận thêm:
+
+Không được bỏ qua phần này.
+
+PHẦN 3 — PHÂN LOẠI AMAZON
+
+Đề xuất:
+
+Amazon Marketplace:
+Amazon.com – United States
+
+Product Type:
+
+Danh mục chính:
+
+Danh mục con:
+
+Item Type Keyword đề xuất:
+
+Suggested Browse Node:
+
+Brand Name:
+Điền “[BRAND NAME]” nếu chưa được cung cấp.
+
+Manufacturer:
+Điền “[MANUFACTURER]” nếu chưa được cung cấp.
+
+Model Name đề xuất:
+
+Model Number đề xuất:
+
+Part Number đề xuất:
+
+Condition:
+New
+
+Sản phẩm có cần UPC/GTIN hay không:
+
+Có thể cân nhắc GTIN Exemption hay không:
+
+Giải thích ngắn về lựa chọn Product Type và Category.
+
+PHẦN 4 — CẤU TRÚC BIẾN THỂ
+
+Xác định sản phẩm có phù hợp tạo variation hay không.
+
+Nếu có, đề xuất:
+
+Parent Product Name:
+
+Variation Theme:
+
+Các biến thể màu sắc:
+
+Các biến thể kích thước:
+
+Các biến thể kiểu dáng:
+
+Các biến thể số lượng:
+
+Quy tắc đặt Parent SKU:
+
+Quy tắc đặt Child SKU:
+
+Ví dụ 5 SKU cụ thể:
+
+Không tạo variation giữa những sản phẩm có thiết kế hoặc chức năng hoàn toàn khác nhau.
+
+PHẦN 5 — AMAZON PRODUCT TITLE
+
+Viết 3 tiêu đề Amazon bằng tiếng Anh:
+
+1. Tiêu đề ưu tiên SEO.
+2. Tiêu đề ưu tiên dễ đọc và chuyển đổi.
+3. Tiêu đề ngắn gọn, an toàn.
+
+Yêu cầu:
+
+* Không nhồi từ khóa.
+* Không viết toàn bộ bằng chữ in hoa.
+* Không dùng ký hiệu quảng cáo.
+* Không đưa giá, giảm giá hoặc thông tin vận chuyển.
+* Không đưa tên thương hiệu của bên thứ ba.
+* Không dùng từ “handmade” nếu chưa xác nhận quy trình sản xuất.
+* Không gọi là “toy” nếu chưa xác định sản phẩm đáp ứng yêu cầu tuân thủ đồ chơi.
+* Đặt tên thương hiệu ở đầu tiêu đề dưới dạng “[BRAND NAME]” nếu chưa có brand.
+* Ưu tiên tiêu đề rõ ràng, khoảng 70–150 ký tự.
+* Ghi số ký tự của từng tiêu đề.
+
+Sau đó chọn một tiêu đề tốt nhất và giải thích ngắn lý do.
+
+PHẦN 6 — ITEM HIGHLIGHT
+
+Viết một Item Highlight bằng tiếng Anh, tối đa 125 ký tự.
+
+Nội dung cần nói nhanh sản phẩm là gì, vật liệu dự kiến và mục đích sử dụng.
+
+Không đưa thông tin chưa xác nhận như một sự thật.
+
+PHẦN 7 — FIVE BULLET POINTS
+
+Viết 5 bullet points bằng tiếng Anh.
+
+Mỗi bullet gồm:
+
+TIÊU ĐỀ VIẾT HOA NGẮN – Nội dung giải thích.
+
+Cấu trúc đề xuất:
+
+Bullet 1: Lợi ích và chức năng chính.
+
+Bullet 2: Thiết kế, cơ chế hoạt động hoặc điểm thú vị.
+
+Bullet 3: Vật liệu, chất lượng hoàn thiện và quy trình sản xuất.
+
+Bullet 4: Kích thước, cách sử dụng, thành phần trong hộp hoặc lưu ý.
+
+Bullet 5: Đối tượng tặng quà, dịp sử dụng và hướng dẫn bảo quản.
+
+Yêu cầu:
+
+* Mỗi bullet khoảng 150–250 ký tự.
+* Không lặp lại toàn bộ title.
+* Tập trung vào lợi ích thực tế.
+* Không đưa cam kết tuyệt đối.
+* Khi kích thước chưa xác nhận, sử dụng placeholder như “[CONFIRM DIMENSIONS]”, không tự đưa số ước tính vào bullet chính thức.
+* Khi màu sắc có thể khác do quá trình in, có thể thêm lưu ý phù hợp.
+* Không gọi sản phẩm là dành cho trẻ em nếu chưa xác nhận tiêu chuẩn an toàn.
+
+PHẦN 8 — PRODUCT DESCRIPTION
+
+Viết một Product Description bằng tiếng Anh dài khoảng 900–1.500 ký tự.
+
+Mô tả cần gồm:
+
+* Giới thiệu sản phẩm.
+* Trải nghiệm hoặc lợi ích mang lại.
+* Cách sử dụng.
+* Phong cách và không gian phù hợp.
+* Vật liệu dự kiến.
+* Thành phần trong hộp.
+* Dịp làm quà.
+* Hướng dẫn bảo quản.
+* Lưu ý về đặc điểm tự nhiên của sản phẩm in 3D.
+
+Không sử dụng HTML trừ khi được yêu cầu.
+
+PHẦN 9 — PRODUCT ATTRIBUTES
+
+Đề xuất nội dung cho từng trường sau:
+
+Brand Name:
+
+Manufacturer:
+
+Model Name:
+
+Model Number:
+
+Part Number:
+
+Material:
+
+Primary Material:
+
+Color:
+
+Color Map:
+
+Size Name:
+
+Style:
+
+Pattern:
+
+Shape:
+
+Theme:
+
+Occasion:
+
+Special Features:
+
+Recommended Uses:
+
+Room Type:
+
+Mounting Type:
+
+Finish Type:
+
+Target Audience:
+
+Age Range Description:
+
+Department:
+
+Number of Items:
+
+Number of Pieces:
+
+Unit Count:
+
+Unit Count Type:
+
+Included Components:
+
+Assembly Required:
+
+Batteries Required:
+
+Batteries Included:
+
+Indoor or Outdoor Use:
+
+Care Instructions:
+
+Country of Origin:
+Điền “[CONFIRM COUNTRY OF ORIGIN]” nếu chưa được cung cấp.
+
+Handmade:
+Chỉ chọn Yes khi người bán xác nhận phù hợp.
+
+Personalized:
+Chỉ chọn Yes khi sản phẩm thực sự cho phép khách nhập tên, chữ, ảnh hoặc lựa chọn cá nhân.
+
+Đối với mỗi trường, ghi rõ một trong bốn nhãn:
+
+* Xác nhận từ nguồn.
+* Suy luận từ hình ảnh.
+* Ước tính tham khảo.
+* Cần xác nhận.
+
+PHẦN 10 — KÍCH THƯỚC VÀ TRỌNG LƯỢNG THAM KHẢO
+
+Nếu trang nguồn cung cấp kích thước, hãy chuyển đổi sang cả:
+
+* Centimeters.
+* Inches.
+
+Nếu trang không cung cấp kích thước, hãy đề xuất ba phương án tham khảo:
+
+Small:
+
+Medium:
+
+Large:
+
+Đối với mỗi phương án, cung cấp:
+
+* Chiều dài.
+* Chiều rộng.
+* Chiều cao.
+* Kích thước bằng cm.
+* Kích thước bằng inch.
+* Trọng lượng thành phẩm dự kiến bằng gram và ounce.
+* Thời gian in dự kiến.
+* Lượng filament dự kiến.
+
+Phải ghi rõ:
+
+“Các thông số trên chỉ là ước tính tham khảo từ hình ảnh và loại sản phẩm. Người bán phải đo mẫu in thực tế trước khi đăng listing.”
+
+Đề xuất thêm:
+
+Package Dimensions tham khảo:
+
+Package Weight tham khảo:
+
+Loại hộp hoặc túi đóng gói phù hợp:
+
+Vật liệu bảo vệ khi vận chuyển:
+
+PHẦN 11 — GIÁ BÁN THAM KHẢO
+
+Đề xuất ba mức giá Amazon US:
+
+Entry Price:
+
+Recommended Price:
+
+Premium Price:
+
+Với mỗi mức giá, giải thích:
+
+* Định vị sản phẩm.
+* Khách hàng mục tiêu.
+* Điều kiện để áp dụng.
+* Rủi ro về biên lợi nhuận.
+
+Tạo một công thức giá tham khảo dựa trên:
+
+* Chi phí filament.
+* Thời gian chạy máy.
+* Chi phí lao động.
+* Điện năng và hao mòn máy.
+* Bao bì.
+* Phí vận chuyển đến kho hoặc khách hàng.
+* Amazon referral fee.
+* FBA fee hoặc chi phí FBM.
+* Chi phí quảng cáo.
+* Tỷ lệ lỗi và hàng thay thế.
+* Lợi nhuận mục tiêu.
+
+Không được khẳng định đây là giá thị trường thực tế nếu chưa nghiên cứu các listing tương tự trên Amazon.
+
+Đưa ra kết luận:
+
+Khoảng giá bán tham khảo:
+
+Mức giá nên test đầu tiên:
+
+Các chi phí cần xác nhận trước khi chốt giá:
+
+PHẦN 12 — BACKEND SEARCH TERMS
+
+Tạo:
+
+Primary Keyword:
+
+10 Secondary Keywords:
+
+10 Long-tail Keywords:
+
+Backend Search Terms:
+
+Yêu cầu với Backend Search Terms:
+
+* Viết trên một dòng.
+* Không dùng dấu phẩy nếu không cần thiết.
+* Không lặp lại từ quá nhiều lần.
+* Không dùng tên thương hiệu đối thủ.
+* Không dùng ASIN.
+* Không dùng từ khóa không liên quan.
+* Không dùng các từ mang tính quảng cáo như best, cheapest hoặc number one.
+* Ưu tiên từ đồng nghĩa, cách gọi khác, công dụng và dịp tặng quà.
+* Giữ tổng nội dung ở mức an toàn, không vượt quá khoảng 249 bytes.
+
+PHẦN 13 — PERSONALIZATION
+
+Xác định sản phẩm có thể phát triển thành sản phẩm cá nhân hóa hay không.
+
+Nếu có, đề xuất:
+
+Customization Type:
+
+Tên trường khách hàng cần nhập:
+
+Hướng dẫn nhập thông tin:
+
+Giới hạn ký tự:
+
+Các font đề xuất:
+
+Các lựa chọn màu:
+
+Các vị trí cá nhân hóa:
+
+Thông báo kiểm tra chính tả:
+
+Thông báo về bản xem trước:
+
+Thời gian sản xuất tham khảo:
+
+Mẫu Personalization Instructions bằng tiếng Anh:
+
+Không tự biến sản phẩm thành sản phẩm cá nhân hóa nếu thiết kế không phù hợp.
+
+PHẦN 14 — HƯỚNG DẪN HÌNH ẢNH LISTING
+
+Đề xuất nội dung cho 8 ảnh Amazon:
+
+Ảnh 1 — Main Image:
+Mô tả bố cục, góc chụp và sản phẩm xuất hiện.
+
+Ảnh 2 — Key Benefits:
+
+Ảnh 3 — Product Dimensions:
+
+Ảnh 4 — How It Works:
+
+Ảnh 5 — Material and Details:
+
+Ảnh 6 — Lifestyle Use:
+
+Ảnh 7 — Gift Occasion:
+
+Ảnh 8 — What Is Included:
+
+Với từng ảnh, cung cấp:
+
+* Tiêu đề trên ảnh bằng tiếng Anh.
+* Nội dung phụ.
+* Gợi ý bố cục.
+* Những chi tiết phải thể hiện.
+* Những thông tin không nên đưa lên ảnh.
+
+Không thay đổi hình dáng, cấu tạo hoặc chi tiết của sản phẩm gốc khi đề xuất mockup. Chỉ được thay đổi background, ánh sáng, bố cục và góc chụp, trừ khi người dùng yêu cầu chỉnh sửa sản phẩm.
+
+PHẦN 15 — A+ CONTENT
+
+Đề xuất cấu trúc A+ Content gồm:
+
+Module 1 — Brand Banner.
+
+Module 2 — Product Story.
+
+Module 3 — Three Main Benefits.
+
+Module 4 — Material and Craftsmanship.
+
+Module 5 — How to Use.
+
+Module 6 — Lifestyle and Gift Occasion.
+
+Module 7 — Comparison Chart.
+
+Với mỗi module, viết:
+
+* Heading bằng tiếng Anh.
+* Nội dung ngắn bằng tiếng Anh.
+* Loại hình ảnh cần chuẩn bị.
+* Mục tiêu chuyển đổi của module.
+
+Không khẳng định thương hiệu có Brand Registry nếu chưa được cung cấp.
+
+PHẦN 16 — SAFETY AND COMPLIANCE
+
+Phân tích sản phẩm có các yếu tố sau hay không:
+
+* Bộ phận nhỏ.
+* Nguy cơ hóc.
+* Nam châm.
+* Pin.
+* LED hoặc linh kiện điện.
+* Cạnh nhọn.
+* Nhiệt.
+* Tiếp xúc thực phẩm.
+* Tiếp xúc da.
+* Dành cho trẻ em.
+* Dễ cháy.
+* Cơ cấu chuyển động.
+* Hóa chất hoặc keo.
+* Vật liệu không rõ nguồn gốc.
+
+Đưa ra:
+
+Các cảnh báo có thể cần:
+
+Nhóm tuổi nên cân nhắc:
+
+Tài liệu hoặc kiểm nghiệm có thể cần:
+
+Thông tin người bán phải xác nhận:
+
+Không tự tạo chứng nhận hoặc tuyên bố sản phẩm đạt tiêu chuẩn nếu chưa có tài liệu.
+
+PHẦN 17 — RỦI RO SỞ HỮU TRÍ TUỆ VÀ GIẤY PHÉP
+
+Kiểm tra và nhận xét:
+
+Tên sản phẩm có chứa thương hiệu bên thứ ba không:
+
+Thiết kế có giống nhân vật, logo, đội thể thao, phim, game hoặc người nổi tiếng không:
+
+Giấy phép trên trang nguồn có cho phép sử dụng thương mại không:
+
+Có được phép bán bản in vật lý hay không:
+
+Có cần liên hệ tác giả để xin commercial license không:
+
+Mức độ rủi ro:
+
+* Thấp.
+* Trung bình.
+* Cao.
+* Chưa đủ dữ liệu.
+
+Giải thích rõ lý do.
+
+Không đề xuất bán sản phẩm nếu giấy phép cấm sử dụng thương mại.
+
+PHẦN 18 — THÔNG TIN CẦN NGƯỜI BÁN XÁC NHẬN
+
+Cuối cùng, tạo một danh sách ngắn những thông tin người bán phải bổ sung trước khi đăng listing, ưu tiên:
+
+* Brand.
+* Quyền sử dụng thương mại.
+* Kích thước thật.
+* Trọng lượng thật.
+* Vật liệu filament.
+* Màu sắc.
+* Số lượng sản phẩm trong hộp.
+* Phụ kiện đi kèm.
+* Quốc gia sản xuất.
+* Đối tượng sử dụng.
+* Cảnh báo an toàn.
+* Giá thành.
+* Phương thức fulfillment.
+* UPC hoặc GTIN Exemption.
+* Thời gian sản xuất.
+* Hình ảnh thành phẩm thực tế.
+
+PHẦN 19 — BẢN TÓM TẮT ĐỂ COPY VÀO HỆ THỐNG
+
+Ở cuối câu trả lời, cung cấp một phần tóm tắt ngắn theo đúng thứ tự:
+
+Recommended Product Name:
+
+Recommended Amazon Title:
+
+Item Highlight:
+
+Bullet Point 1:
+
+Bullet Point 2:
+
+Bullet Point 3:
+
+Bullet Point 4:
+
+Bullet Point 5:
+
+Product Description:
+
+Material:
+
+Color:
+
+Size:
+
+Product Dimensions:
+
+Item Weight:
+
+Package Dimensions:
+
+Package Weight:
+
+Included Components:
+
+Special Features:
+
+Occasion:
+
+Target Audience:
+
+Recommended Price:
+
+Backend Search Terms:
+
+Main Safety Warning:
+
+Main IP or License Warning:
+
+Các trường chưa xác nhận phải giữ placeholder dạng “[CONFIRM …]”, không tự điền thông tin giả để làm cho listing trông hoàn chỉnh.`
+
 const MODEL_PROFILES = {
   stable: {
-    label: 'Ổn định / câu thường',
+    label: 'Ổn định / listing nhanh',
     env: 'OPENAI_MODEL_STABLE',
     fallback: DEFAULT_FALLBACK_MODEL,
     webSearch: false,
-    description: 'Dùng cho câu thường, angle, quyết định. Ưu tiên ổn định và ít lỗi.',
+    description: 'Dùng mặc định để viết listing Amazon nhanh, ít lỗi.',
   },
   cheap: {
-    label: 'Nhẹ / nhiều idea',
+    label: 'Nhẹ / nhiều listing',
     env: 'OPENAI_MODEL_CHEAP',
     fallback: DEFAULT_FALLBACK_MODEL,
     webSearch: false,
-    description: 'Dùng khi muốn chạy số lượng lớn, không cần web search.',
+    description: 'Dùng khi muốn viết nhiều listing liên tục.',
   },
   balanced: {
-    label: 'Cân bằng',
+    label: 'Cân bằng / listing tốt hơn',
     env: 'OPENAI_MODEL_BALANCED',
     fallback: process.env.OPENAI_MODEL || DEFAULT_MODEL,
     webSearch: false,
-    description: 'Dùng cho idea quan trọng vừa phải.',
+    description: 'Dùng cho sản phẩm quan trọng vừa phải.',
   },
   strong: {
-    label: 'Mạnh / idea quan trọng',
+    label: 'Mạnh / sản phẩm quan trọng',
     env: 'OPENAI_MODEL_STRONG',
     fallback: process.env.OPENAI_MODEL || DEFAULT_MODEL,
     webSearch: false,
-    description: 'Dùng cho idea đã shortlist, cần đánh giá kỹ nhưng chưa cần tìm web.',
+    description: 'Dùng khi cần listing kỹ hơn, wording tốt hơn.',
   },
   research: {
-    label: 'Research thị trường',
+    label: 'Research / có thể đọc web',
     env: 'OPENAI_MODEL_RESEARCH',
     fallback: process.env.OPENAI_MODEL || DEFAULT_MODEL,
     webSearch: true,
-    description: 'Dùng riêng cho tìm sản phẩm tương tự. Có web search nếu Netlify bật OPENAI_ENABLE_WEB_SEARCH=true.',
-  },
-}
-
-const ANALYSIS_TYPES = {
-  similar_products: {
-    label: 'Tìm sản phẩm tương tự',
-    description: 'Tìm/suy luận sản phẩm tương tự trên thị trường US, giá tham khảo, đối thủ và cơ hội khác biệt.',
-  },
-  angles: {
-    label: 'Gợi ý angle',
-    description: 'Gợi ý cách làm khác biệt, content angle, ads angle và visual angle.',
-  },
-  decision: {
-    label: 'Đề xuất quyết định',
-    description: 'Đưa ra quyết định Nên test / Cần nghiên cứu thêm / Nên bỏ cùng lý do ngắn gọn.',
-  },
-  // Giữ lại để không lỗi với report/nút cũ, nhưng UI mới không hiển thị nút này nữa.
-  quick_score: {
-    label: 'Đề xuất quyết định',
-    description: 'Đưa ra quyết định ngắn gọn, không dựng bảng điểm nặng.',
+    description: 'Dùng khi có link sản phẩm và muốn tham chiếu kỹ hơn. Có thể chậm hơn.',
   },
 }
 
@@ -71,11 +714,9 @@ function json(statusCode, body) {
   }
 }
 
-function resolveModelProfile(modelProfile, analysisType) {
+function resolveModelProfile(modelProfile) {
   const requested = typeof modelProfile === 'string' ? modelProfile : ''
-  const profileKey = MODEL_PROFILES[requested]
-    ? requested
-    : (analysisType === 'similar_products' ? 'research' : 'stable')
+  const profileKey = MODEL_PROFILES[requested] ? requested : 'stable'
   const profile = MODEL_PROFILES[profileKey] || MODEL_PROFILES.stable
   const model = process.env[profile.env] || profile.fallback || DEFAULT_MODEL
   return {
@@ -150,171 +791,93 @@ function extractOutputText(data) {
   return chunks.join('\n').trim()
 }
 
-function buildPrompt({ idea, sourceType, productPageText, analysisType, useWebSearch, modelProfileLabel }) {
-  const tool = ANALYSIS_TYPES[analysisType] || ANALYSIS_TYPES.decision
-  const safeType = analysisType === 'quick_score' ? 'decision' : analysisType
+function formatAdditionalInformation(idea, productPageText, imageInputNote) {
+  const rows = [
+    ['Tên idea', idea?.name],
+    ['Niche chính', idea?.niche],
+    ['Niche con', idea?.sub_niche],
+    ['Loại sản phẩm', idea?.product_type],
+    ['Link sản phẩm', idea?.product_url],
+    ['Ảnh sản phẩm / mockup URL', idea?.product_image_url],
+    ['Chiều cao sản phẩm', idea?.product_height],
+    ['Cân nặng sản phẩm', idea?.product_weight],
+    ['Đối tượng khách hàng', idea?.target_customer],
+    ['Mức ưu tiên', idea?.priority],
+    ['Trạng thái', idea?.status],
+    ['Owner', idea?.owner],
+    ['Ghi chú người dùng', idea?.notes],
+  ]
 
-  const sharedRules = `
-NGUYÊN TẮC BẮT BUỘC:
-- Trả lời bằng tiếng Việt.
-- Trả lời DẠNG TEXT GỌN, không JSON, không markdown table, không code fence.
-- Có thể dùng tiêu đề ngắn và bullet list.
-- Không được nịnh. Không viết PR. Không cố làm sản phẩm trông tốt hơn thực tế.
-- Nếu idea yếu, USP yếu, rủi ro IP/cạnh tranh cao hoặc khó bán, phải nói thẳng.
-- Nếu thiếu dữ liệu, ghi rõ "Giả định" và nói mức tin cậy thấp hơn.
-- Ưu tiên đánh giá thực dụng cho team ecommerce / product research.
-- Market mặc định: United States / US buyers.
-- Dữ liệu đầu vào có thể thiếu; không được bịa số liệu hay bịa link thật.
-`
+  const filledRows = rows
+    .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+    .map(([label, value]) => `- ${label}: ${String(value).trim()}`)
 
-  const similarPrompt = `
-NHIỆM VỤ: TÌM SẢN PHẨM TƯƠNG TỰ TRÊN THỊ TRƯỜNG US.
+  if (productPageText) {
+    filledRows.push(`- Nội dung đọc được từ link sản phẩm: ${productPageText}`)
+  } else {
+    filledRows.push('- Nội dung đọc được từ link sản phẩm: Không đọc được hoặc chưa có link. Hãy ghi rõ phần này là chưa xác nhận nếu cần.')
+  }
 
-Hãy trả lời theo format text này:
+  if (imageInputNote) filledRows.push(`- Ghi chú xử lý ảnh: ${imageInputNote}`)
 
-Kết luận nhanh:
-- Có/không có dấu hiệu thị trường đã bán sản phẩm tương tự.
-- Mức cạnh tranh: Thấp / Trung bình / Cao.
-- Có đáng nghiên cứu tiếp không?
-
-Sản phẩm / nhóm sản phẩm tương tự nên kiểm tra:
-1. Tên sản phẩm hoặc keyword:
-   - Nền tảng nên tìm: Etsy / Amazon / TikTok Shop / MakerWorld / Printables / Shopify / Pinterest
-   - Giá tham khảo nếu có cơ sở, nếu không thì ghi "cần kiểm tra".
-   - Điểm giống:
-   - Điểm khác:
-   - Cơ hội khác biệt:
-   - Link hoặc keyword tìm kiếm: nếu không chắc link thật thì chỉ ghi keyword, không bịa URL.
-
-Gợi ý keyword để team tự search:
-- Etsy: ...
-- Amazon: ...
-- TikTok Shop: ...
-- MakerWorld/Printables nếu liên quan 3D: ...
-- Pinterest: ...
-
-Red flags:
-- ...
-
-Kết luận cho sếp:
-- Nên test / Cần nghiên cứu thêm / Nên bỏ.
-- Lý do ngắn gọn.
-
-Ưu tiên nguồn:
-1. Etsy cho personalized gift, handmade, decor, POD, custom product.
-2. Amazon cho mass-market, phụ kiện phổ thông, review/giá tham khảo.
-3. TikTok Shop cho trend/impulse-buy/short video.
-4. MakerWorld/Printables cho sản phẩm 3D print.
-5. Shopify/DTC stores cho brand nhỏ.
-6. Pinterest cho visual trend.
-
-WEB SEARCH: ${useWebSearch ? 'Được phép dùng nếu tool khả dụng.' : 'Không bật web search. Hãy suy luận bảo thủ và đưa keyword để team tự kiểm tra. Tuyệt đối không bịa link.'}
-`
-
-  const anglePrompt = `
-NHIỆM VỤ: GỢI Ý ANGLE BÁN HÀNG / CONTENT / ADS.
-
-Hãy trả lời theo format text này:
-
-Kết luận nhanh:
-- Sản phẩm này nên bán bằng angle nào nhất?
-- Angle nào không nên dùng?
-
-Angle đề xuất:
-1. Angle:
-   - Hook:
-   - Visual nên làm:
-   - Target customer:
-   - Vì sao có thể hiệu quả:
-   - Rủi ro:
-
-2. Angle:
-   - Hook:
-   - Visual nên làm:
-   - Target customer:
-   - Vì sao có thể hiệu quả:
-   - Rủi ro:
-
-Cách làm khác biệt:
-- Personalization:
-- Bundle:
-- Form/design:
-- Gift angle:
-
-Next action:
-- 3 việc nên làm tiếp theo để test creative.
-`
-
-  const decisionPrompt = `
-NHIỆM VỤ: ĐỀ XUẤT QUYẾT ĐỊNH CHO SẾP.
-
-Hãy trả lời theo format text này:
-
-Quyết định:
-- Chọn một trong ba: Nên test / Cần nghiên cứu thêm / Nên bỏ.
-
-Lý do chính:
-- 3-5 bullet, nói thẳng.
-
-Điểm mạnh:
-- ...
-
-Điểm yếu / Red flags:
-- ...
-
-Điều kiện để được test:
-- Nếu cần test, phải đạt điều kiện gì? VD: có USP rõ, margin tốt, tìm được 3 creative angle, tránh IP risk...
-
-Next action:
-- Việc tiếp theo cụ thể cho team.
-
-Kết luận một câu:
-- Một câu rất ngắn để sếp quyết định nhanh.
-`
-
-  const taskPrompt = safeType === 'similar_products'
-    ? similarPrompt
-    : safeType === 'angles'
-      ? anglePrompt
-      : decisionPrompt
-
-  return `Bạn là chuyên gia product research, ecommerce growth, creative strategy và market validation cho thị trường US.
-
-CÔNG CỤ ĐANG CHẠY: ${tool.label}
-MỤC TIÊU: ${tool.description}
-MODEL PROFILE: ${modelProfileLabel || 'Không rõ'}
-
-DỮ LIỆU IDEA:
-${JSON.stringify({ sourceType, ...idea }, null, 2)}
-
-NỘI DUNG ĐỌC ĐƯỢC TỪ LINK SẢN PHẨM, NẾU CÓ:
-${productPageText || 'Không đọc được hoặc chưa có link sản phẩm.'}
-
-${sharedRules}
-${taskPrompt}
-`
+  return filledRows.join('\n')
 }
 
-async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType, selectedProfile, useWebSearch }) {
+function isValidHttpUrl(value) {
+  if (!value || typeof value !== 'string') return false
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function buildPrompt({ idea, productPageText, imageInputNote }) {
+  const productLink = idea?.product_url || '[PRODUCT_LINK]'
+  const additionalInformation = formatAdditionalInformation(idea, productPageText, imageInputNote)
+
+  return AMAZON_LISTING_PROMPT_TEMPLATE
+    .replace('[PRODUCT_LINK]', productLink)
+    .replace('[ADDITIONAL_INFORMATION]', additionalInformation)
+}
+
+async function callOpenAIOnce({ idea, sourceType, productPageText, selectedProfile, useWebSearch, includeImage = true }) {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('Thiếu OPENAI_API_KEY trong Netlify Environment variables.')
 
   const model = selectedProfile?.model || process.env.OPENAI_MODEL || DEFAULT_MODEL
-  const input = [
+  const imageUrl = isValidHttpUrl(idea?.product_image_url) ? idea.product_image_url : ''
+  const imageInputNote = imageUrl
+    ? includeImage
+      ? 'Đã gửi product_image_url như input ảnh cho model nếu model hỗ trợ vision. Nếu model không xem được ảnh, hãy coi ảnh là URL tham khảo và không khẳng định chi tiết chưa chắc chắn.'
+      : 'Ảnh sản phẩm có URL nhưng lần gọi này fallback về text-only, không phân tích trực tiếp ảnh.'
+    : ''
+
+  const userContent = [
     {
-      role: 'system',
-      content: 'Bạn là AI analyst nội bộ. Trả lời dạng text gọn, không JSON, không bảng markdown. Đánh giá bảo thủ, không nịnh.',
-    },
-    {
-      role: 'user',
-      content: buildPrompt({
+      type: 'input_text',
+      text: buildPrompt({
         idea,
         sourceType,
         productPageText,
-        analysisType,
-        useWebSearch,
-        modelProfileLabel: selectedProfile?.label,
+        imageInputNote,
       }),
+    },
+  ]
+
+  if (imageUrl && includeImage) {
+    userContent.push({ type: 'input_image', image_url: imageUrl, detail: 'low' })
+  }
+
+  const input = [
+    {
+      role: 'system',
+      content: 'Bạn là chuyên gia nghiên cứu sản phẩm và tối ưu listing Amazon US. Tuân thủ đúng prompt của người dùng, viết listing bằng tiếng Anh và phân tích/giải thích bằng tiếng Việt. Không bịa thông tin.',
+    },
+    {
+      role: 'user',
+      content: userContent,
     },
   ]
 
@@ -323,7 +886,7 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType,
   if (String(model).startsWith('gpt-5')) {
     body.reasoning = { effort: process.env.OPENAI_REASONING_EFFORT || 'low' }
   } else {
-    body.temperature = 0.35
+    body.temperature = 0.25
   }
 
   if (useWebSearch) {
@@ -332,7 +895,7 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType,
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 40000)
+  const timeout = setTimeout(() => controller.abort(), 60000)
 
   try {
     const response = await fetch('https://api.openai.com/v1/responses', {
@@ -352,27 +915,30 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, analysisType,
     }
 
     const text = extractOutputText(data)
-    if (!text) throw new Error('OpenAI không trả về nội dung phân tích.')
+    if (!text) throw new Error('OpenAI không trả về nội dung listing.')
     return {
       text,
       model,
       usedWebSearch: useWebSearch,
+      usedImageInput: Boolean(imageUrl && includeImage),
       modelProfile: selectedProfile?.key || '',
       modelProfileLabel: selectedProfile?.label || '',
     }
   } catch (error) {
-    if (error?.name === 'AbortError') throw new Error('OpenAI timeout. Vui lòng thử lại hoặc tắt web search.')
+    if (error?.name === 'AbortError') throw new Error('OpenAI timeout. Vui lòng thử model ổn định hoặc tắt web search.')
     throw error
   } finally {
     clearTimeout(timeout)
   }
 }
 
-async function callOpenAI({ idea, sourceType, productPageText, analysisType, selectedProfile }) {
+async function callOpenAI({ idea, sourceType, productPageText, selectedProfile }) {
   const wantsWebSearch = Boolean(selectedProfile?.webSearch)
+  const hasImage = isValidHttpUrl(idea?.product_image_url)
   const attempts = [
-    { profile: selectedProfile, useWebSearch: wantsWebSearch },
-    { profile: selectedProfile, useWebSearch: false },
+    { profile: selectedProfile, useWebSearch: wantsWebSearch, includeImage: hasImage },
+    { profile: selectedProfile, useWebSearch: wantsWebSearch, includeImage: false },
+    { profile: selectedProfile, useWebSearch: false, includeImage: false },
   ]
 
   if (selectedProfile?.model !== DEFAULT_FALLBACK_MODEL) {
@@ -384,6 +950,7 @@ async function callOpenAI({ idea, sourceType, productPageText, analysisType, sel
         webSearch: false,
       },
       useWebSearch: false,
+      includeImage: false,
     })
   }
 
@@ -394,14 +961,14 @@ async function callOpenAI({ idea, sourceType, productPageText, analysisType, sel
         idea,
         sourceType,
         productPageText,
-        analysisType,
         selectedProfile: attempt.profile,
         useWebSearch: attempt.useWebSearch,
+        includeImage: attempt.includeImage,
       })
     } catch (error) {
       lastError = error
       const message = error instanceof Error ? error.message : String(error)
-      const canFallback = /web_search|tool|unsupported|invalid|model|does not exist|not found|timeout|rate|429|quota|billing/i.test(message)
+      const canFallback = /web_search|tool|unsupported|invalid|model|does not exist|not found|timeout|rate|429|quota|billing|image|vision|input_image/i.test(message)
       if (!canFallback && attempt === attempts[0]) throw error
     }
   }
@@ -419,20 +986,19 @@ export const handler = async (event) => {
     return json(400, { error: 'Body phải là JSON hợp lệ.' })
   }
 
-  const { idea, sourceType = 'idea', analysisType = 'decision', modelProfile } = payload
+  const { idea, sourceType = 'idea', modelProfile } = payload
   if (!idea || typeof idea !== 'object') return json(400, { error: 'Thiếu dữ liệu idea.' })
-  if (!ANALYSIS_TYPES[analysisType]) return json(400, { error: 'analysisType không hợp lệ.' })
 
   try {
     const productPageText = await fetchProductPageText(idea.product_url)
-    const selectedProfile = resolveModelProfile(modelProfile, analysisType)
+    const selectedProfile = resolveModelProfile(modelProfile)
     const webSearchAllowed = process.env.OPENAI_ENABLE_WEB_SEARCH === 'true'
     const finalProfile = {
       ...selectedProfile,
-      webSearch: Boolean(analysisType === 'similar_products' && selectedProfile.webSearch && webSearchAllowed),
+      webSearch: Boolean(selectedProfile.webSearch && webSearchAllowed),
     }
 
-    const result = await callOpenAI({ idea, sourceType, productPageText, analysisType, selectedProfile: finalProfile })
+    const result = await callOpenAI({ idea, sourceType, productPageText, selectedProfile: finalProfile })
 
     return json(200, {
       report: result.text,
@@ -440,13 +1006,14 @@ export const handler = async (event) => {
       score: null,
       model: result.model,
       usedWebSearch: result.usedWebSearch,
+      usedImageInput: result.usedImageInput,
       modelProfile: result.modelProfile,
       modelProfileLabel: result.modelProfileLabel,
       productPageTextAvailable: Boolean(productPageText),
-      analysisType,
+      analysisType: 'amazon_listing',
       warning: result.usedWebSearch ? '' : (finalProfile.webSearch ? 'Đã fallback không dùng web search để tránh lỗi.' : ''),
     })
   } catch (error) {
-    return json(500, { error: error instanceof Error ? error.message : 'Không thể phân tích AI.' })
+    return json(500, { error: error instanceof Error ? error.message : 'Không thể viết listing Amazon.' })
   }
 }

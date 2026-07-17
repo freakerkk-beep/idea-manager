@@ -65,6 +65,9 @@ export interface Idea {
   sub_niche_id: string | null
   product_type_id: string | null
   product_url: string | null
+  product_image_url: string | null
+  product_height: string | null
+  product_weight: string | null
   target_customer: string | null
   priority: Priority
   status: Status
@@ -93,6 +96,9 @@ export interface SavedIdea {
   product_type_id: string | null
   product_type_name: string | null
   product_url: string | null
+  product_image_url: string | null
+  product_height: string | null
+  product_weight: string | null
   target_customer: string | null
   priority: Priority
   status: Status

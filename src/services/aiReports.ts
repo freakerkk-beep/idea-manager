@@ -1,9 +1,8 @@
 import { supabase } from '../lib/supabase'
 import type { AiReport } from '../types'
 
-export type AiAnalysisType = 'similar_products' | 'quick_score' | 'angles' | 'decision'
+export type AiAnalysisType = 'amazon_listing'
 export type AiModelProfile = 'stable' | 'cheap' | 'balanced' | 'strong' | 'research'
-
 
 export const AI_MODEL_PROFILES: Array<{
   profile: AiModelProfile
@@ -15,52 +14,40 @@ export const AI_MODEL_PROFILES: Array<{
     profile: 'stable',
     label: 'Ổn định - GPT-4.1 mini',
     shortLabel: 'Ổn định',
-    recommendedFor: 'Câu thường: angle, quyết định. Ít lỗi nhất.',
+    recommendedFor: 'Dùng mặc định để viết listing nhanh, ít lỗi nhất.',
   },
   {
     profile: 'cheap',
-    label: 'Nhẹ - GPT-5.6 Luna',
+    label: 'Nhẹ - GPT-4.1 mini',
     shortLabel: 'Nhẹ',
-    recommendedFor: 'Chạy nhiều idea, không cần web search.',
+    recommendedFor: 'Dùng khi muốn viết nhiều listing liên tục.',
   },
   {
     profile: 'balanced',
-    label: 'Cân bằng - GPT-5 mini',
+    label: 'Cân bằng',
     shortLabel: 'Cân bằng',
-    recommendedFor: 'Idea khá quan trọng, cần phân tích tốt hơn bản ổn định.',
+    recommendedFor: 'Dùng cho sản phẩm khá quan trọng, cần copy tốt hơn.',
   },
   {
     profile: 'strong',
-    label: 'Mạnh - GPT-5.6 Terra',
+    label: 'Mạnh',
     shortLabel: 'Mạnh',
-    recommendedFor: 'Idea quan trọng, cần đánh giá sâu nhưng chưa cần tìm thị trường.',
+    recommendedFor: 'Dùng cho sản phẩm đã shortlist, cần listing kỹ hơn.',
   },
   {
     profile: 'research',
-    label: 'Research - GPT-5.6 Terra + web search',
+    label: 'Research / có thể đọc web',
     shortLabel: 'Research',
-    recommendedFor: 'Dùng cho Tìm sản phẩm tương tự. Có thể chậm hơn và tốn hơn.',
+    recommendedFor: 'Chỉ dùng khi có link sản phẩm và muốn AI tham chiếu kỹ hơn. Có thể chậm hơn.',
   },
 ]
 
 export const AI_ANALYSIS_TOOLS: Array<{ type: AiAnalysisType; label: string; shortLabel: string; description: string }> = [
   {
-    type: 'similar_products',
-    label: 'Tìm sản phẩm tương tự',
-    shortLabel: 'Tìm tương tự',
-    description: 'Tìm/suy luận sản phẩm tương tự, giá, đối thủ và cơ hội khác biệt. Trả lời dạng text.',
-  },
-  {
-    type: 'angles',
-    label: 'Gợi ý angle',
-    shortLabel: 'Angle',
-    description: 'Gợi ý content angle, ads angle, visual và cách làm khác biệt. Trả lời dạng text.',
-  },
-  {
-    type: 'decision',
-    label: 'Đề xuất quyết định',
-    shortLabel: 'Quyết định',
-    description: 'Đề xuất Nên test / Cần nghiên cứu thêm / Nên bỏ. Trả lời thẳng, dạng text.',
+    type: 'amazon_listing',
+    label: 'Viết listing Amazon',
+    shortLabel: 'Amazon listing',
+    description: 'Tạo title, bullet points, description, search terms và checklist ảnh cho Amazon US.',
   },
 ]
 
@@ -78,6 +65,7 @@ export interface AnalyzeIdeaResult {
   score: number | null
   model: string | null
   usedWebSearch?: boolean
+  usedImageInput?: boolean
   productPageTextAvailable?: boolean
   warning?: string
   analysisType?: AiAnalysisType
