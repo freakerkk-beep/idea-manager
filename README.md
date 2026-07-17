@@ -64,3 +64,7 @@ hard refresh website bằng `Command + Shift + R` trên Mac hoặc
 
 Website không có đăng nhập và RLS hiện cho publishable key đọc/ghi dữ liệu.
 Không lưu thông tin bí mật và không chia sẻ link Netlify công khai.
+
+## Cập nhật: thêm option ngay trong dropdown
+
+Chạy `supabase/migrate_inline_catalog_options.sql` trước khi deploy bản code này. Sau đó, trong bảng niche, các dropdown Niche chính, Niche con, Loại sản phẩm và Trạng thái xử lý có thể thêm lựa chọn mới trực tiếp. Dữ liệu mới được đồng bộ với trang Cài đặt danh mục.

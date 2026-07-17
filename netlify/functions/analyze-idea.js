@@ -743,11 +743,12 @@ function stripHtml(html) {
 }
 
 async function fetchProductPageText(url) {
-  if (!url || typeof url !== 'string') return ''
+  const cleanUrl = cleanOptionalValue(url)
+  if (!cleanUrl) return ''
 
   let parsed
   try {
-    parsed = new URL(url)
+    parsed = new URL(cleanUrl)
   } catch {
     return ''
   }
@@ -791,51 +792,123 @@ function extractOutputText(data) {
   return chunks.join('\n').trim()
 }
 
+function cleanOptionalValue(value) {
+  if (value === null || value === undefined) return ''
+  const text = String(value).trim()
+  if (!text) return ''
+
+  const lowered = text.toLowerCase()
+  const placeholderValues = new Set([
+    '—',
+    '-',
+    'n/a',
+    'na',
+    'none',
+    'null',
+    'undefined',
+    '[product_link]',
+    '[additional_information]',
+    '[confirm dimensions]',
+    '[confirm weight]',
+    'https://...',
+    'http://...',
+    'https://',
+    'http://',
+  ])
+
+  if (placeholderValues.has(lowered)) return ''
+  if (/^https?:\/\/\.{2,}\/?$/i.test(text)) return ''
+  if (/^\[.*\]$/.test(text)) return ''
+
+  return text
+}
+
+function getCleanIdea(idea) {
+  return {
+    id: cleanOptionalValue(idea?.id),
+    source_idea_id: cleanOptionalValue(idea?.source_idea_id),
+    name: cleanOptionalValue(idea?.name),
+    niche: cleanOptionalValue(idea?.niche),
+    sub_niche: cleanOptionalValue(idea?.sub_niche),
+    product_type: cleanOptionalValue(idea?.product_type),
+    product_url: cleanOptionalValue(idea?.product_url),
+    product_image_url: cleanOptionalValue(idea?.product_image_url),
+    product_height: cleanOptionalValue(idea?.product_height),
+    product_weight: cleanOptionalValue(idea?.product_weight),
+    target_customer: cleanOptionalValue(idea?.target_customer),
+    priority: cleanOptionalValue(idea?.priority),
+    status: cleanOptionalValue(idea?.status),
+    owner: cleanOptionalValue(idea?.owner),
+    notes: cleanOptionalValue(idea?.notes),
+    saved_at: cleanOptionalValue(idea?.saved_at),
+  }
+}
+
 function formatAdditionalInformation(idea, productPageText, imageInputNote) {
+  const cleanIdea = getCleanIdea(idea)
   const rows = [
-    ['Tên idea', idea?.name],
-    ['Niche chính', idea?.niche],
-    ['Niche con', idea?.sub_niche],
-    ['Loại sản phẩm', idea?.product_type],
-    ['Link sản phẩm', idea?.product_url],
-    ['Ảnh sản phẩm / mockup URL', idea?.product_image_url],
-    ['Chiều cao sản phẩm', idea?.product_height],
-    ['Cân nặng sản phẩm', idea?.product_weight],
-    ['Đối tượng khách hàng', idea?.target_customer],
-    ['Mức ưu tiên', idea?.priority],
-    ['Trạng thái', idea?.status],
-    ['Owner', idea?.owner],
-    ['Ghi chú người dùng', idea?.notes],
+    ['Tên idea', cleanIdea.name],
+    ['Niche chính', cleanIdea.niche],
+    ['Niche con', cleanIdea.sub_niche],
+    ['Loại sản phẩm', cleanIdea.product_type],
+    ['Link sản phẩm', cleanIdea.product_url],
+    ['Ảnh sản phẩm / mockup URL', cleanIdea.product_image_url],
+    ['Chiều cao sản phẩm', cleanIdea.product_height],
+    ['Cân nặng sản phẩm', cleanIdea.product_weight],
+    ['Đối tượng khách hàng', cleanIdea.target_customer],
+    ['Mức ưu tiên', cleanIdea.priority],
+    ['Trạng thái', cleanIdea.status],
+    ['Owner', cleanIdea.owner],
+    ['Ghi chú người dùng', cleanIdea.notes],
   ]
 
   const filledRows = rows
-    .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
-    .map(([label, value]) => `- ${label}: ${String(value).trim()}`)
+    .filter(([, value]) => value !== '')
+    .map(([label, value]) => `- ${label}: ${value}`)
 
   if (productPageText) {
     filledRows.push(`- Nội dung đọc được từ link sản phẩm: ${productPageText}`)
+  } else if (cleanIdea.product_url) {
+    filledRows.push('- Nội dung đọc được từ link sản phẩm: Đã có link nhưng backend không đọc được trang hoặc trang chặn truy cập. Hãy phân tích dựa trên link, tên idea và thông tin còn lại; các thông tin không chắc chắn phải ghi nhãn Cần xác nhận / Ước tính tham khảo.')
   } else {
-    filledRows.push('- Nội dung đọc được từ link sản phẩm: Không đọc được hoặc chưa có link. Hãy ghi rõ phần này là chưa xác nhận nếu cần.')
+    filledRows.push('- Link sản phẩm: Chưa có. Hãy phân tích dựa trên các thông tin người dùng đã nhập; thông tin thiếu phải giữ placeholder hoặc ghi Cần xác nhận.')
   }
 
   if (imageInputNote) filledRows.push(`- Ghi chú xử lý ảnh: ${imageInputNote}`)
+
+  filledRows.push('- Lưu ý quan trọng: Tất cả trường bổ sung như ảnh, chiều cao, cân nặng, đối tượng khách hàng và ghi chú đều là tùy chọn. Không được từ chối tạo listing chỉ vì thiếu trường. Nếu thiếu dữ liệu, hãy dùng placeholder [CONFIRM ...] hoặc ghi rõ Cần xác nhận theo quy tắc prompt.')
 
   return filledRows.join('\n')
 }
 
 function isValidHttpUrl(value) {
-  if (!value || typeof value !== 'string') return false
+  const text = cleanOptionalValue(value)
+  if (!text) return false
   try {
-    const parsed = new URL(value)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    const parsed = new URL(text)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+    if (!parsed.hostname || parsed.hostname.includes('...') || parsed.hostname === '.') return false
+    return true
+  } catch {
+    return false
+  }
+}
+
+function isLikelyDirectImageUrl(value) {
+  if (!isValidHttpUrl(value)) return false
+  try {
+    const parsed = new URL(cleanOptionalValue(value))
+    const pathname = parsed.pathname.toLowerCase()
+    return /\.(png|jpe?g|webp|gif)(\?.*)?$/.test(pathname)
   } catch {
     return false
   }
 }
 
 function buildPrompt({ idea, productPageText, imageInputNote }) {
-  const productLink = idea?.product_url || '[PRODUCT_LINK]'
-  const additionalInformation = formatAdditionalInformation(idea, productPageText, imageInputNote)
+  const cleanIdea = getCleanIdea(idea)
+  const productLink = cleanIdea.product_url || '[PRODUCT_LINK]'
+  const additionalInformation = formatAdditionalInformation(cleanIdea, productPageText, imageInputNote)
 
   return AMAZON_LISTING_PROMPT_TEMPLATE
     .replace('[PRODUCT_LINK]', productLink)
@@ -847,7 +920,7 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, selectedProfi
   if (!apiKey) throw new Error('Thiếu OPENAI_API_KEY trong Netlify Environment variables.')
 
   const model = selectedProfile?.model || process.env.OPENAI_MODEL || DEFAULT_MODEL
-  const imageUrl = isValidHttpUrl(idea?.product_image_url) ? idea.product_image_url : ''
+  const imageUrl = isLikelyDirectImageUrl(idea?.product_image_url) ? cleanOptionalValue(idea.product_image_url) : ''
   const imageInputNote = imageUrl
     ? includeImage
       ? 'Đã gửi product_image_url như input ảnh cho model nếu model hỗ trợ vision. Nếu model không xem được ảnh, hãy coi ảnh là URL tham khảo và không khẳng định chi tiết chưa chắc chắn.'
@@ -989,8 +1062,22 @@ export const handler = async (event) => {
   const { idea, sourceType = 'idea', modelProfile } = payload
   if (!idea || typeof idea !== 'object') return json(400, { error: 'Thiếu dữ liệu idea.' })
 
+  const cleanIdea = getCleanIdea(idea)
+  const hasAnyReference = Boolean(
+    cleanIdea.name ||
+    cleanIdea.product_url ||
+    cleanIdea.product_image_url ||
+    cleanIdea.notes ||
+    cleanIdea.product_type ||
+    cleanIdea.niche ||
+    cleanIdea.sub_niche
+  )
+  if (!hasAnyReference) {
+    return json(400, { error: 'Cần ít nhất tên idea, link sản phẩm hoặc ghi chú để AI có dữ liệu phân tích.' })
+  }
+
   try {
-    const productPageText = await fetchProductPageText(idea.product_url)
+    const productPageText = await fetchProductPageText(cleanIdea.product_url)
     const selectedProfile = resolveModelProfile(modelProfile)
     const webSearchAllowed = process.env.OPENAI_ENABLE_WEB_SEARCH === 'true'
     const finalProfile = {
@@ -998,7 +1085,7 @@ export const handler = async (event) => {
       webSearch: Boolean(selectedProfile.webSearch && webSearchAllowed),
     }
 
-    const result = await callOpenAI({ idea, sourceType, productPageText, selectedProfile: finalProfile })
+    const result = await callOpenAI({ idea: cleanIdea, sourceType, productPageText, selectedProfile: finalProfile })
 
     return json(200, {
       report: result.text,

@@ -10,9 +10,13 @@ import {
   updateIdea,
 } from '../services/ideas'
 import { PriorityBadge, StatusBadge } from '../components/Badges'
+import { AddableSelectCell, type AddableSelectOption } from '../components/AddableSelectCell'
 import { SelectCell, TextAreaCell, TextCell, UrlCell } from '../components/cells'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { PRIORITY_OPTIONS, STATUS_OPTIONS, type Idea, type Priority, type Status } from '../types'
+import { AiReportModal } from '../components/AiReportModal'
+import { PRIORITY_OPTIONS, type AiReport, type Idea, type Priority } from '../types'
+import { createNiche, createProductType, createStatusOption, createSubNiche } from '../services/catalog'
+import { analyzeIdeaWithOpenAI, createAiReport } from '../services/aiReports'
 
 function rowPriorityClass(priority: Priority) {
   if (priority === 'Cao') return 'priority-row-high'
@@ -22,14 +26,17 @@ function rowPriorityClass(priority: Priority) {
 
 export function NichePage() {
   const { nicheId } = useParams<{ nicheId: string }>()
-  const { catalog, ideas, savedIdeas, refetchIdeas, refetchSavedIdeas } = useAppData()
+  const { catalog, ideas, savedIdeas, aiReports, refetchCatalog, refetchIdeas, refetchSavedIdeas, refetchAiReports } = useAppData()
   const { showToast } = useToast()
 
   const niche = catalog.niches.find((n) => n.id === nicheId)
   const subNichesForNiche = catalog.subNiches.filter((s) => s.niche_id === nicheId && s.is_active)
 
   const nicheIdeas = useMemo(
-    () => ideas.filter((i) => i.niche_id === nicheId && i.status !== 'Đã loại bỏ'),
+    () =>
+      ideas
+        .filter((i) => i.niche_id === nicheId && i.status !== 'Đã loại bỏ')
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
     [ideas, nicheId]
   )
 
@@ -37,6 +44,14 @@ export function NichePage() {
     () => new Set(savedIdeas.map((idea) => idea.source_idea_id).filter(Boolean)),
     [savedIdeas]
   )
+
+  const statusNames = useMemo(() => {
+    const names = [
+      ...catalog.statusOptions.filter((status) => status.is_active).map((status) => status.name),
+      ...nicheIdeas.map((idea) => idea.status),
+    ]
+    return Array.from(new Set(names.filter(Boolean)))
+  }, [catalog.statusOptions, nicheIdeas])
 
   const [search, setSearch] = useState('')
   const [subNicheFilter, setSubNicheFilter] = useState('')
@@ -47,6 +62,14 @@ export function NichePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [focusIdeaId, setFocusIdeaId] = useState<string | null>(null)
+  const [isAddingIdea, setIsAddingIdea] = useState(false)
+  const [aiModal, setAiModal] = useState<{
+    open: boolean
+    idea: Idea | null
+    report: string
+    loading: boolean
+    error: string | null
+  }>({ open: false, idea: null, report: '', loading: false, error: null })
 
   const filtered = nicheIdeas.filter((i) => {
     if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false
@@ -60,14 +83,140 @@ export function NichePage() {
 
   useEffect(() => {
     if (!focusIdeaId) return
-    const timer = window.setTimeout(() => {
+
+    let cancelled = false
+    let attempt = 0
+    let retryTimer: number | undefined
+
+    const scrollAndFocusNewIdea = () => {
+      if (cancelled) return
+
       const row = document.getElementById(`idea-row-${focusIdeaId}`)
-      row?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      row?.querySelector<HTMLInputElement>('input:not([type="checkbox"])')?.focus()
-      setFocusIdeaId(null)
-    }, 80)
-    return () => window.clearTimeout(timer)
-  }, [focusIdeaId, filtered])
+      const nameInput = row?.querySelector<HTMLInputElement>('input:not([type="checkbox"])')
+
+      if (row && nameInput) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+        window.setTimeout(() => {
+          if (cancelled) return
+          nameInput.focus({ preventScroll: true })
+          nameInput.select()
+          setFocusIdeaId(null)
+        }, 350)
+        return
+      }
+
+      attempt += 1
+      if (attempt < 40) {
+        retryTimer = window.setTimeout(scrollAndFocusNewIdea, 100)
+      } else {
+        setFocusIdeaId(null)
+        showToast('Đã thêm idea nhưng chưa thể tự chuyển tới hàng mới. Hãy tải lại trang và thử lại.', 'error')
+      }
+    }
+
+    window.requestAnimationFrame(scrollAndFocusNewIdea)
+
+    return () => {
+      cancelled = true
+      if (retryTimer) window.clearTimeout(retryTimer)
+    }
+  }, [focusIdeaId, nicheIdeas.length, showToast])
+
+  async function addNicheOption(name: string): Promise<AddableSelectOption> {
+    const created = await createNiche(name)
+    await refetchCatalog()
+    showToast(`Đã thêm niche “${created.name}”`, 'success')
+    return { value: created.id, label: created.name }
+  }
+
+  async function addSubNicheOption(nicheIdForNewOption: string, name: string): Promise<AddableSelectOption> {
+    const created = await createSubNiche(nicheIdForNewOption, name)
+    await refetchCatalog()
+    showToast(`Đã thêm niche con “${created.name}”`, 'success')
+    return { value: created.id, label: created.name }
+  }
+
+  async function addProductTypeOption(name: string): Promise<AddableSelectOption> {
+    const created = await createProductType(name)
+    await refetchCatalog()
+    showToast(`Đã thêm loại sản phẩm “${created.name}”`, 'success')
+    return { value: created.id, label: created.name }
+  }
+
+  async function addStatusOption(name: string): Promise<AddableSelectOption> {
+    const created = await createStatusOption(name)
+    await refetchCatalog()
+    showToast(`Đã thêm trạng thái “${created.name}”`, 'success')
+    return { value: created.name, label: created.name }
+  }
+
+  const latestReportByIdeaId = useMemo(() => {
+    const map = new Map<string, AiReport>()
+    for (const report of aiReports) {
+      if (report.source_type !== 'idea' || !report.idea_id) continue
+      if (!map.has(report.idea_id)) map.set(report.idea_id, report)
+    }
+    return map
+  }, [aiReports])
+
+  function buildAiPayload(idea: Idea) {
+    return {
+      id: idea.id,
+      name: idea.name,
+      niche: catalog.niches.find((n) => n.id === idea.niche_id)?.name ?? '',
+      sub_niche: catalog.subNiches.find((s) => s.id === idea.sub_niche_id)?.name ?? '',
+      product_type: catalog.productTypes.find((p) => p.id === idea.product_type_id)?.name ?? '',
+      product_url: idea.product_url ?? '',
+      target_customer: idea.target_customer ?? '',
+      priority: idea.priority,
+      status: idea.status,
+      owner: catalog.assignees.find((a) => a.id === idea.assignee_id)?.name ?? '',
+      notes: idea.notes ?? '',
+    }
+  }
+
+  async function handleAnalyzeIdea(idea: Idea) {
+    if (!idea.name.trim()) {
+      showToast('Hãy nhập tên idea trước khi phân tích AI', 'error')
+      return
+    }
+
+    setAiModal({ open: true, idea, report: '', loading: true, error: null })
+    try {
+      const result = await analyzeIdeaWithOpenAI({ sourceType: 'idea', idea: buildAiPayload(idea) })
+      await createAiReport({
+        idea_id: idea.id,
+        saved_idea_id: null,
+        source_type: 'idea',
+        idea_name: idea.name,
+        report_markdown: result.report,
+        score: result.score,
+        model: result.model,
+      })
+      await refetchAiReports()
+      setAiModal({ open: true, idea, report: result.report, loading: false, error: null })
+      showToast('Đã phân tích tự động', 'success')
+    } catch (e) {
+      setAiModal({
+        open: true,
+        idea,
+        report: latestReportByIdeaId.get(idea.id)?.report_markdown ?? '',
+        loading: false,
+        error: e instanceof Error ? e.message : 'Không thể phân tích AI',
+      })
+    }
+  }
+
+  function openLatestAiReport(idea: Idea) {
+    const latest = latestReportByIdeaId.get(idea.id)
+    setAiModal({
+      open: true,
+      idea,
+      report: latest?.report_markdown ?? '',
+      loading: false,
+      error: null,
+    })
+  }
 
   function clearFiltersForNewRow() {
     setSearch('')
@@ -79,14 +228,18 @@ export function NichePage() {
   }
 
   async function handleAddIdea() {
+    if (isAddingIdea) return
+    setIsAddingIdea(true)
     try {
       clearFiltersForNewRow()
       const created = await createEmptyIdea(nicheId ?? null)
-      setFocusIdeaId(created.id)
       await refetchIdeas()
-      showToast('Đã thêm một hàng idea mới', 'success')
+      setFocusIdeaId(created.id)
+      showToast('Đã thêm một hàng idea mới ở cuối bảng', 'success')
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Không thể thêm idea', 'error')
+    } finally {
+      setIsAddingIdea(false)
     }
   }
 
@@ -211,7 +364,7 @@ export function NichePage() {
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả trạng thái</option>
-          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+          {statusNames.map((status) => <option key={status} value={status}>{status}</option>)}
         </select>
         <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
           <option value="">Tất cả Owner</option>
@@ -238,6 +391,7 @@ export function NichePage() {
               <th className="sticky top-0 min-w-[150px] border-b border-slate-200 bg-slate-100 px-2 py-2">Trạng thái xử lý</th>
               <th className="sticky top-0 min-w-[140px] border-b border-slate-200 bg-slate-100 px-2 py-2">Owner</th>
               <th className="sticky top-0 min-w-[180px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ghi chú</th>
+              <th className="sticky top-0 min-w-[130px] border-b border-slate-200 bg-slate-100 px-2 py-2 text-center">Tự động phân tích</th>
               <th className="sticky top-0 w-20 border-b border-slate-200 bg-slate-100 px-2 py-2 text-center">Xóa</th>
             </tr>
           </thead>
@@ -252,32 +406,47 @@ export function NichePage() {
                     <div className="px-2 text-[11px] text-slate-400">{savedSourceIds.has(idea.id) ? '✅ Đã lưu vĩnh viễn' : 'Chưa lưu'}</div>
                   </td>
                   <td className="px-1 py-1 align-top">
-                    <SelectCell
+                    <AddableSelectCell
                       value={idea.niche_id ?? ''}
+                      placeholder="— Chọn —"
                       options={catalog.niches
-                        .filter((n) => n.is_active)
+                        .filter((n) => n.is_active || n.id === idea.niche_id)
                         .map((n) => ({ value: n.id, label: n.name }))}
-                      onCommit={(v) => commit(idea.id, { niche_id: v, sub_niche_id: null })}
+                      onCommit={(value) => commit(idea.id, { niche_id: value || null, sub_niche_id: null })}
+                      addLabel="Thêm niche chính"
+                      addPlaceholder="Tên niche chính mới..."
+                      onAdd={addNicheOption}
                     />
                   </td>
                   <td className="px-1 py-1 align-top">
-                    <SelectCell
+                    <AddableSelectCell
                       value={idea.sub_niche_id ?? ''}
                       placeholder="— Chọn —"
                       options={catalog.subNiches
-                        .filter((s) => s.niche_id === idea.niche_id && s.is_active)
+                        .filter((s) => s.niche_id === idea.niche_id && (s.is_active || s.id === idea.sub_niche_id))
                         .map((s) => ({ value: s.id, label: s.name }))}
-                      onCommit={(v) => commit(idea.id, { sub_niche_id: v })}
+                      onCommit={(value) => commit(idea.id, { sub_niche_id: value || null })}
+                      addLabel="Thêm niche con"
+                      addPlaceholder="Tên niche con mới..."
+                      addDisabled={!idea.niche_id}
+                      addDisabledMessage="Chọn niche chính trước"
+                      onAdd={(name) => {
+                        if (!idea.niche_id) throw new Error('Hãy chọn niche chính trước khi thêm niche con.')
+                        return addSubNicheOption(idea.niche_id, name)
+                      }}
                     />
                   </td>
                   <td className="px-1 py-1 align-top">
-                    <SelectCell
+                    <AddableSelectCell
                       value={idea.product_type_id ?? ''}
                       placeholder="— Chọn —"
                       options={catalog.productTypes
-                        .filter((p) => p.is_active)
+                        .filter((p) => p.is_active || p.id === idea.product_type_id)
                         .map((p) => ({ value: p.id, label: p.name }))}
-                      onCommit={(v) => commit(idea.id, { product_type_id: v })}
+                      onCommit={(value) => commit(idea.id, { product_type_id: value || null })}
+                      addLabel="Thêm loại sản phẩm"
+                      addPlaceholder="Tên loại sản phẩm mới..."
+                      onAdd={addProductTypeOption}
                     />
                   </td>
                   <td className="px-1 py-1 align-top">
@@ -291,7 +460,15 @@ export function NichePage() {
                     <div className="px-2 py-0.5"><PriorityBadge value={idea.priority} /></div>
                   </td>
                   <td className="px-1 py-1 align-top">
-                    <SelectCell value={idea.status} options={STATUS_OPTIONS} onCommit={(v: Status) => commit(idea.id, { status: v })} />
+                    <AddableSelectCell
+                      value={idea.status}
+                      placeholder="— Chọn —"
+                      options={statusNames.map((status) => ({ value: status, label: status }))}
+                      onCommit={(value) => commit(idea.id, { status: value || 'Idea mới' })}
+                      addLabel="Thêm trạng thái xử lý"
+                      addPlaceholder="Tên trạng thái mới..."
+                      onAdd={addStatusOption}
+                    />
                     <div className="px-2 py-0.5"><StatusBadge value={idea.status} /></div>
                   </td>
                   <td className="px-1 py-1 align-top">
@@ -308,6 +485,25 @@ export function NichePage() {
                     <TextAreaCell value={idea.notes ?? ''} onCommit={(v) => commit(idea.id, { notes: v })} />
                   </td>
                   <td className="px-2 py-2 text-center align-top">
+                    <div className="flex flex-col items-center gap-1">
+                      <button
+                        onClick={() => handleAnalyzeIdea(idea)}
+                        className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+                        title="Tự động đọc link, nhận diện sản phẩm, phân tích thị trường và gợi ý chiến lược bán hàng"
+                      >
+                        Tự động phân tích
+                      </button>
+                      {latestReportByIdeaId.has(idea.id) && (
+                        <button
+                          onClick={() => openLatestAiReport(idea)}
+                          className="text-[11px] font-medium text-indigo-600 hover:underline"
+                        >
+                          Xem
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 text-center align-top">
                     <button
                       onClick={() => handleQuickDelete(idea.id)}
                       className="rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
@@ -321,14 +517,19 @@ export function NichePage() {
           </tbody>
         </table>
 
-        <div className="idea-add-footer min-w-[1450px]">
+        <div className="idea-add-sticky">
           <button
             onClick={handleAddIdea}
-            className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-emerald-300 bg-white px-4 text-xs font-medium text-emerald-700 shadow-sm hover:border-emerald-500 hover:bg-emerald-50"
-            title="Luôn thêm một hàng idea mới ở cuối danh sách"
+            disabled={isAddingIdea}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60"
+            title="Nút luôn hiển thị khi cuộn; hàng mới được thêm ở cuối và tự động đưa bạn tới ô nhập tên"
           >
-            <span className="text-base leading-none">+</span>
-            {filtered.length === 0 ? 'Thêm idea đầu tiên' : 'Thêm hàng ở cuối'}
+            <span className="text-lg leading-none">+</span>
+            {isAddingIdea
+              ? 'Đang thêm...'
+              : filtered.length === 0
+                ? 'Thêm idea đầu tiên'
+                : 'Thêm idea ở cuối'}
           </button>
         </div>
       </div>
@@ -341,6 +542,17 @@ export function NichePage() {
         danger
         onConfirm={handleDeleteSelected}
         onCancel={() => setConfirmDeleteOpen(false)}
+      />
+
+      <AiReportModal
+        open={aiModal.open}
+        title={aiModal.idea?.name || 'Idea chưa có tên'}
+        report={aiModal.report}
+        loading={aiModal.loading}
+        error={aiModal.error}
+        latestReport={aiModal.idea ? latestReportByIdeaId.get(aiModal.idea.id) ?? null : null}
+        onClose={() => setAiModal({ open: false, idea: null, report: '', loading: false, error: null })}
+        onRegenerate={aiModal.idea ? () => handleAnalyzeIdea(aiModal.idea as Idea) : undefined}
       />
     </div>
   )
