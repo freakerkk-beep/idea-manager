@@ -27,18 +27,10 @@ export interface Assignee {
   created_at: string
 }
 
-export interface StatusOption {
-  id: string
-  name: string
-  is_active: boolean
-  sort_order: number
-  created_at: string
-}
-
 export const PRIORITY_OPTIONS = ['Chưa đánh giá', 'Cao', 'Trung bình'] as const
 export type Priority = (typeof PRIORITY_OPTIONS)[number]
 
-export const DEFAULT_STATUS_OPTIONS = [
+export const STATUS_OPTIONS = [
   'Idea mới',
   'Đang nghiên cứu',
   'Chờ đánh giá',
@@ -51,9 +43,7 @@ export const DEFAULT_STATUS_OPTIONS = [
   'Tạm hoãn',
   'Đã loại bỏ',
 ] as const
-
-// Trạng thái được quản lý động trong bảng status_options của Supabase.
-export type Status = string
+export type Status = (typeof STATUS_OPTIONS)[number]
 
 export const EVALUATION_OPTIONS = ['Oke', 'Bình thường', 'Loại bỏ'] as const
 export type Evaluation = (typeof EVALUATION_OPTIONS)[number]
@@ -65,9 +55,6 @@ export interface Idea {
   sub_niche_id: string | null
   product_type_id: string | null
   product_url: string | null
-  product_image_url: string | null
-  product_height: string | null
-  product_weight: string | null
   target_customer: string | null
   priority: Priority
   status: Status
@@ -96,9 +83,6 @@ export interface SavedIdea {
   product_type_id: string | null
   product_type_name: string | null
   product_url: string | null
-  product_image_url: string | null
-  product_height: string | null
-  product_weight: string | null
   target_customer: string | null
   priority: Priority
   status: Status
@@ -116,17 +100,4 @@ export interface CatalogData {
   subNiches: SubNiche[]
   productTypes: ProductType[]
   assignees: Assignee[]
-  statusOptions: StatusOption[]
-}
-
-export interface AiReport {
-  id: string
-  idea_id: string | null
-  saved_idea_id: string | null
-  source_type: 'idea' | 'saved_idea'
-  idea_name: string
-  report_markdown: string
-  score: number | null
-  model: string | null
-  created_at: string
 }

@@ -1,24 +1,21 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { fetchCatalog } from '../services/catalog'
 import { fetchAllIdeas, fetchSavedIdeas } from '../services/ideas'
-import { fetchAiReports } from '../services/aiReports'
-import type { AiReport, CatalogData, Idea, SavedIdea } from '../types'
+import type { CatalogData, Idea, SavedIdea } from '../types'
 
 interface AppDataContextValue {
   catalog: CatalogData
   ideas: Idea[]
   savedIdeas: SavedIdea[]
-  aiReports: AiReport[]
   loading: boolean
   error: string | null
   refetchCatalog: () => Promise<void>
   refetchIdeas: () => Promise<void>
   refetchSavedIdeas: () => Promise<void>
-  refetchAiReports: () => Promise<void>
   refetchAll: () => Promise<void>
 }
 
-const emptyCatalog: CatalogData = { niches: [], subNiches: [], productTypes: [], assignees: [], statusOptions: [] }
+const emptyCatalog: CatalogData = { niches: [], subNiches: [], productTypes: [], assignees: [] }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null)
 
@@ -26,7 +23,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [catalog, setCatalog] = useState<CatalogData>(emptyCatalog)
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [savedIdeas, setSavedIdeas] = useState<SavedIdea[]>([])
-  const [aiReports, setAiReports] = useState<AiReport[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -45,19 +41,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setSavedIdeas(data)
   }, [])
 
-  const refetchAiReports = useCallback(async () => {
-    const data = await fetchAiReports()
-    setAiReports(data)
-  }, [])
-
   const refetchAll = useCallback(async () => {
     setError(null)
     try {
-      await Promise.all([refetchCatalog(), refetchIdeas(), refetchSavedIdeas(), refetchAiReports()])
+      await Promise.all([refetchCatalog(), refetchIdeas(), refetchSavedIdeas()])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể tải dữ liệu từ Supabase.')
     }
-  }, [refetchCatalog, refetchIdeas, refetchSavedIdeas, refetchAiReports])
+  }, [refetchCatalog, refetchIdeas, refetchSavedIdeas])
 
   useEffect(() => {
     setLoading(true)
@@ -70,13 +61,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         catalog,
         ideas,
         savedIdeas,
-        aiReports,
         loading,
         error,
         refetchCatalog,
         refetchIdeas,
         refetchSavedIdeas,
-        refetchAiReports,
         refetchAll,
       }}
     >

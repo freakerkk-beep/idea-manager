@@ -34,14 +34,6 @@ create table if not exists assignees (
   created_at timestamptz not null default now()
 );
 
-create table if not exists status_options (
-  id uuid primary key default gen_random_uuid(),
-  name text not null unique,
-  is_active boolean not null default true,
-  sort_order integer not null default 1000,
-  created_at timestamptz not null default now()
-);
-
 create table if not exists ideas (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -52,7 +44,11 @@ create table if not exists ideas (
   target_customer text,
   priority text not null default 'Chưa đánh giá'
     check (priority in ('Chưa đánh giá','Thấp','Trung bình','Cao')),
-  status text not null default 'Idea mới',
+  status text not null default 'Idea mới'
+    check (status in (
+      'Idea mới','Đang nghiên cứu','Chờ đánh giá','Đã chọn R&D','Đang thiết kế',
+      'Đang prototype','Đang tính giá','Đang test','Đã duyệt','Tạm hoãn','Đã loại bỏ'
+    )),
   assignee_id uuid references assignees(id) on delete set null,
   evaluation text check (evaluation in ('Oke','Bình thường','Loại bỏ') or evaluation is null),
   notes text,
@@ -80,7 +76,11 @@ create table if not exists saved_ideas (
   target_customer text,
   priority text not null default 'Chưa đánh giá'
     check (priority in ('Chưa đánh giá','Thấp','Trung bình','Cao')),
-  status text not null default 'Idea mới',
+  status text not null default 'Idea mới'
+    check (status in (
+      'Idea mới','Đang nghiên cứu','Chờ đánh giá','Đã chọn R&D','Đang thiết kế',
+      'Đang prototype','Đang tính giá','Đang test','Đã duyệt','Tạm hoãn','Đã loại bỏ'
+    )),
   assignee_id uuid,
   assignee_name text,
   evaluation text check (evaluation in ('Oke','Bình thường','Loại bỏ') or evaluation is null),
@@ -89,21 +89,6 @@ create table if not exists saved_ideas (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
-insert into status_options (name, sort_order)
-values
-  ('Idea mới', 10),
-  ('Đang nghiên cứu', 20),
-  ('Chờ đánh giá', 30),
-  ('Đã chọn R&D', 40),
-  ('Đang thiết kế', 50),
-  ('Đang prototype', 60),
-  ('Đang tính giá', 70),
-  ('Đang test', 80),
-  ('Đã duyệt', 90),
-  ('Tạm hoãn', 100),
-  ('Đã loại bỏ', 110)
-on conflict (name) do nothing;
 
 create index if not exists idx_ideas_niche on ideas(niche_id);
 create index if not exists idx_ideas_saved on ideas(is_saved);
@@ -129,40 +114,10 @@ create trigger trg_saved_ideas_updated_at
 before update on saved_ideas
 for each row execute function set_updated_at();
 
-create or replace function rename_status_option(p_id uuid, p_new_name text)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  old_name text;
-  clean_name text := btrim(p_new_name);
-begin
-  if clean_name is null or clean_name = '' then
-    raise exception 'Tên trạng thái không được để trống';
-  end if;
-
-  select name into old_name from status_options where id = p_id for update;
-  if old_name is null then raise exception 'Không tìm thấy trạng thái'; end if;
-  if old_name in ('Idea mới', 'Đã loại bỏ') then
-    raise exception 'Trạng thái hệ thống không thể đổi tên';
-  end if;
-  if exists (select 1 from status_options where lower(name) = lower(clean_name) and id <> p_id) then
-    raise exception 'Trạng thái này đã tồn tại';
-  end if;
-
-  update ideas set status = clean_name where status = old_name;
-  update saved_ideas set status = clean_name where status = old_name;
-  update status_options set name = clean_name where id = p_id;
-end;
-$$;
-
 alter table niches enable row level security;
 alter table sub_niches enable row level security;
 alter table product_types enable row level security;
 alter table assignees enable row level security;
-alter table status_options enable row level security;
 alter table ideas enable row level security;
 alter table saved_ideas enable row level security;
 
@@ -186,11 +141,6 @@ create policy "public read assignees" on assignees for select using (true);
 drop policy if exists "public write assignees" on assignees;
 create policy "public write assignees" on assignees for all using (true) with check (true);
 
-drop policy if exists "public read status options" on status_options;
-create policy "public read status options" on status_options for select using (true);
-drop policy if exists "public write status options" on status_options;
-create policy "public write status options" on status_options for all using (true) with check (true);
-
 drop policy if exists "public read ideas" on ideas;
 create policy "public read ideas" on ideas for select using (true);
 drop policy if exists "public write ideas" on ideas;
@@ -203,5 +153,4 @@ create policy "public write saved ideas" on saved_ideas for all using (true) wit
 
 -- Cấp quyền cho publishable/anon key.
 grant usage on schema public to anon, authenticated;
-grant select, insert, update, delete on niches, sub_niches, product_types, assignees, status_options, ideas, saved_ideas to anon, authenticated;
-grant execute on function rename_status_option(uuid, text) to anon, authenticated;
+grant select, insert, update, delete on niches, sub_niches, product_types, assignees, ideas, saved_ideas to anon, authenticated;

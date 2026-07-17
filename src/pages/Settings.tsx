@@ -6,20 +6,17 @@ import {
   createNiche,
   createProductType,
   createSubNiche,
-  createStatusOption,
   deleteAssignee,
   deleteNiche,
   deleteProductType,
   deleteSubNiche,
-  deleteStatusOption,
   updateAssignee,
   updateNiche,
   updateProductType,
   updateSubNiche,
-  updateStatusOption,
 } from '../services/catalog'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import type { Assignee, Niche, ProductType, StatusOption, SubNiche } from '../types'
+import type { Assignee, Niche, ProductType, SubNiche } from '../types'
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -65,7 +62,6 @@ interface Row {
   id: string
   name: string
   is_active: boolean
-  locked?: boolean
 }
 
 function EditableList({
@@ -85,34 +81,26 @@ function EditableList({
         <li key={r.id} className="flex items-center gap-2 py-2">
           <input
             defaultValue={r.name}
-            readOnly={r.locked}
             onBlur={(e) => {
-              if (!r.locked && e.target.value.trim() && e.target.value !== r.name) onRename(r.id, e.target.value.trim())
+              if (e.target.value.trim() && e.target.value !== r.name) onRename(r.id, e.target.value.trim())
             }}
             className={
-              'flex-1 rounded-md border border-transparent px-2 py-1 text-sm focus:outline-none ' +
-              (r.locked ? 'cursor-default bg-slate-50 font-medium text-slate-600 ' : 'hover:bg-slate-50 focus:border-emerald-500 focus:bg-white ') +
+              'flex-1 rounded-md border border-transparent px-2 py-1 text-sm hover:bg-slate-50 focus:border-emerald-500 focus:bg-white focus:outline-none ' +
               (r.is_active ? '' : 'text-slate-400 line-through')
             }
           />
-          {r.locked ? (
-            <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500">Bắt buộc</span>
-          ) : (
-            <>
-              <button
-                onClick={() => onToggleActive(r.id, !r.is_active)}
-                className="rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-              >
-                {r.is_active ? 'Ẩn' : 'Hiện'}
-              </button>
-              <button
-                onClick={() => onDelete(r.id)}
-                className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-              >
-                Xóa
-              </button>
-            </>
-          )}
+          <button
+            onClick={() => onToggleActive(r.id, !r.is_active)}
+            className="rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+          >
+            {r.is_active ? 'Ẩn' : 'Hiện'}
+          </button>
+          <button
+            onClick={() => onDelete(r.id)}
+            className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+          >
+            Xóa
+          </button>
         </li>
       ))}
       {rows.length === 0 && <li className="py-2 text-sm text-slate-400">Chưa có mục nào.</li>}
@@ -120,7 +108,7 @@ function EditableList({
   )
 }
 
-type DeleteKind = 'niche' | 'sub' | 'product' | 'status' | 'assignee'
+type DeleteKind = 'niche' | 'sub' | 'product' | 'assignee'
 
 export function Settings() {
   const { catalog, refetchCatalog } = useAppData()
@@ -145,7 +133,6 @@ export function Settings() {
     if (kind === 'niche') await guarded(() => deleteNiche(id), 'Đã xóa niche')
     if (kind === 'sub') await guarded(() => deleteSubNiche(id), 'Đã xóa niche con')
     if (kind === 'product') await guarded(() => deleteProductType(id), 'Đã xóa loại sản phẩm')
-    if (kind === 'status') await guarded(() => deleteStatusOption(id), 'Đã xóa trạng thái')
     if (kind === 'assignee') await guarded(() => deleteAssignee(id), 'Đã xóa Owner')
   }
 
@@ -154,25 +141,17 @@ export function Settings() {
     .filter((s: SubNiche) => s.niche_id === selectedNicheForSub)
     .map((s) => ({ id: s.id, name: s.name, is_active: s.is_active }))
   const productTypeRows: Row[] = catalog.productTypes.map((p: ProductType) => ({ id: p.id, name: p.name, is_active: p.is_active }))
-  const statusRows: Row[] = catalog.statusOptions.map((status: StatusOption) => ({
-    id: status.id,
-    name: status.name,
-    is_active: status.is_active,
-    locked: status.name === 'Idea mới' || status.name === 'Đã loại bỏ',
-  }))
   const assigneeRows: Row[] = catalog.assignees.map((a: Assignee) => ({ id: a.id, name: a.name, is_active: a.is_active }))
 
   const deleteMessage = confirmDelete?.kind === 'assignee'
     ? `Bạn có chắc muốn xóa Owner "${confirmDelete.name}"? Các idea đang gán Owner này sẽ chuyển thành chưa có Owner. Bản đã lưu trước đó vẫn giữ tên Owner cũ.`
-    : confirmDelete?.kind === 'status'
-      ? `Bạn có chắc muốn xóa trạng thái "${confirmDelete.name}"? Chỉ xóa được khi chưa có idea nào sử dụng; nếu đã dùng, hãy ẩn trạng thái.`
-      : `Bạn có chắc muốn xóa "${confirmDelete?.name ?? ''}"? Nếu đang có idea sử dụng, hệ thống sẽ báo lỗi và bạn nên ẩn thay vì xóa.`
+    : `Bạn có chắc muốn xóa "${confirmDelete?.name ?? ''}"? Nếu đang có idea sử dụng, hệ thống sẽ báo lỗi và bạn nên ẩn thay vì xóa.`
 
   return (
     <div className="h-full overflow-y-auto">
       <header className="border-b border-slate-200 bg-white px-6 py-4">
         <h1 className="text-lg font-semibold text-slate-900">Cài đặt danh mục</h1>
-        <p className="text-sm text-slate-500">Quản lý niche, niche con, loại sản phẩm, trạng thái xử lý và Owner của idea.</p>
+        <p className="text-sm text-slate-500">Quản lý niche, niche con, loại sản phẩm và Owner của idea.</p>
       </header>
 
       <div className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-2">
@@ -227,25 +206,6 @@ export function Settings() {
           />
         </SectionCard>
 
-        <SectionCard title="Trạng thái xử lý">
-          <AddRow
-            placeholder="Tên trạng thái mới..."
-            onAdd={(name) => guarded(() => createStatusOption(name), 'Đã thêm trạng thái')}
-          />
-          <EditableList
-            rows={statusRows}
-            onRename={(id, name) => guarded(() => updateStatusOption(id, { name }), 'Đã cập nhật trạng thái')}
-            onToggleActive={(id, active) => guarded(() => updateStatusOption(id, { is_active: active }), active ? 'Đã hiện trạng thái' : 'Đã ẩn trạng thái')}
-            onDelete={(id) => {
-              const status = catalog.statusOptions.find((item) => item.id === id)
-              setConfirmDelete({ kind: 'status', id, name: status?.name ?? '' })
-            }}
-          />
-          <p className="mt-2 text-xs text-slate-400">
-            Trạng thái thêm tại đây hoặc trực tiếp trong bảng niche sẽ dùng chung một danh sách.
-          </p>
-        </SectionCard>
-
         <SectionCard title="Owner">
           <AddRow placeholder="Tên Owner mới..." onAdd={(name) => guarded(() => createAssignee(name), 'Đã thêm Owner')} />
           <ul className="mt-3 divide-y divide-slate-100">
@@ -284,7 +244,7 @@ export function Settings() {
 
       <ConfirmDialog
         open={!!confirmDelete}
-        title={confirmDelete?.kind === 'assignee' ? 'Xóa Owner?' : confirmDelete?.kind === 'status' ? 'Xóa trạng thái?' : 'Xóa mục này?'}
+        title={confirmDelete?.kind === 'assignee' ? 'Xóa Owner?' : 'Xóa mục này?'}
         message={deleteMessage}
         confirmLabel="Xóa"
         danger

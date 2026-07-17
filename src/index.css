@@ -79,29 +79,9 @@ body {
 }
 
 
-
-/* Chỉ giữ nút thêm idea nổi gọn ở góc phải dưới, không tạo thanh nền che bảng */
-.idea-add-sticky {
-  position: fixed;
-  right: 20px;
-  bottom: 18px;
-  z-index: 50;
-  width: auto;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  backdrop-filter: none;
-  pointer-events: none;
-}
-
-.idea-add-sticky > button {
-  pointer-events: auto;
-}
-
-@media (max-width: 900px) {
-  .idea-add-sticky {
-    right: 12px;
-    bottom: 12px;
-  }
+/* Một nút thêm hàng duy nhất, nằm ngoài bảng và luôn ở cuối danh sách */
+.idea-add-footer {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 2px;
 }
