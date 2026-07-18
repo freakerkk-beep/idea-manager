@@ -15,7 +15,7 @@ Thông tin bổ sung từ người dùng:
 [ADDITIONAL_INFORMATION]
 
 QUY TẮC QUAN TRỌNG
-1. Ưu tiên phân tích link MakerWorld nếu đọc được. Nếu link không đọc được hoặc trang chặn truy cập, vẫn tiếp tục viết listing dựa trên tên idea, niche, loại sản phẩm, ghi chú, ảnh URL, chiều cao và cân nặng người dùng nhập.
+1. Quy trình tham chiếu nguồn phải theo đúng thứ tự: (a) ưu tiên nội dung backend đã đọc được từ link sản phẩm; (b) nếu backend không đọc được link và hệ thống có bật web search, hãy dùng web search để hiểu sản phẩm theo link/tên idea; (c) nếu web search không khả dụng hoặc không tìm được dữ liệu đáng tin cậy, vẫn tiếp tục viết listing dựa trên tên idea, niche, loại sản phẩm, ghi chú, ảnh URL, chiều cao và cân nặng người dùng nhập. Không được từ chối chỉ vì thiếu dữ liệu; phần thiếu phải dùng placeholder [CONFIRM ...] hoặc ghi Cần xác nhận.
 2. Không được tự ý khẳng định thông tin không có nguồn. Với thông tin chưa chắc, dùng nhãn: [Xác nhận từ nguồn], [Suy luận từ hình ảnh/tên sản phẩm], [Ước tính tham khảo], hoặc [Cần người bán xác nhận].
 3. Không copy nguyên văn mô tả của tác giả. Viết lại hoàn toàn theo phong cách Amazon US, tập trung vào lợi ích khách hàng.
 4. Không dùng claim không chứng minh được: best, number one, guaranteed, 100% safe, non-toxic, eco-friendly, unbreakable, official, licensed.
@@ -420,11 +420,14 @@ function formatAdditionalInformation(idea, productPageText, imageInputNote) {
     .map(([label, value]) => `- ${label}: ${value}`)
 
   if (productPageText) {
-    filledRows.push(`- Nội dung đọc được từ link sản phẩm: ${productPageText}`)
+    filledRows.push(`- Nội dung đọc được từ link sản phẩm bằng backend fetch: ${productPageText}`)
+    filledRows.push('- Trạng thái nguồn dữ liệu: Backend đã đọc được link. Ưu tiên thông tin này trước mọi suy luận.')
   } else if (cleanIdea.product_url) {
-    filledRows.push('- Nội dung đọc được từ link sản phẩm: Đã có link nhưng backend không đọc được trang hoặc trang chặn truy cập. Hãy phân tích dựa trên link, tên idea và thông tin còn lại; các thông tin không chắc chắn phải ghi nhãn Cần xác nhận / Ước tính tham khảo.')
+    filledRows.push('- Nội dung đọc được từ link sản phẩm bằng backend fetch: Không đọc được hoặc trang chặn truy cập.')
+    filledRows.push('- Trạng thái nguồn dữ liệu: Có link nhưng backend fetch thất bại. Nếu request có bật web search, hãy thử dùng web search để hiểu sản phẩm. Nếu vẫn không tìm được thông tin đáng tin cậy, phân tích từ tên idea và dữ liệu trong bảng; mọi thông tin thiếu phải ghi Cần xác nhận / Ước tính tham khảo.')
   } else {
     filledRows.push('- Link sản phẩm: Chưa có. Hãy phân tích dựa trên các thông tin người dùng đã nhập; thông tin thiếu phải giữ placeholder hoặc ghi Cần xác nhận.')
+    filledRows.push('- Trạng thái nguồn dữ liệu: Không có link. Chỉ dùng dữ liệu trong bảng và ghi rõ các giả định.')
   }
 
   if (imageInputNote) filledRows.push(`- Ghi chú xử lý ảnh: ${imageInputNote}`)
@@ -558,14 +561,17 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, selectedProfi
   }
 }
 
-async function callOpenAI({ idea, sourceType, productPageText, selectedProfile }) {
-  const wantsWebSearch = Boolean(selectedProfile?.webSearch)
+async function callOpenAI({ idea, sourceType, productPageText, selectedProfile, autoWebSearchFallback = false }) {
+  const wantsWebSearch = Boolean(selectedProfile?.webSearch || autoWebSearchFallback)
   const hasImage = false
-  const attempts = [
-    { profile: selectedProfile, useWebSearch: wantsWebSearch, includeImage: hasImage },
-    { profile: selectedProfile, useWebSearch: wantsWebSearch, includeImage: false },
-    { profile: selectedProfile, useWebSearch: false, includeImage: false },
-  ]
+  const attempts = wantsWebSearch
+    ? [
+        { profile: { ...selectedProfile, webSearch: true }, useWebSearch: true, includeImage: hasImage },
+        { profile: { ...selectedProfile, webSearch: false }, useWebSearch: false, includeImage: false },
+      ]
+    : [
+        { profile: selectedProfile, useWebSearch: false, includeImage: false },
+      ]
 
   if (selectedProfile?.model !== DEFAULT_FALLBACK_MODEL) {
     attempts.push({
@@ -633,12 +639,21 @@ export const handler = async (event) => {
     const productPageText = await fetchProductPageText(cleanIdea.product_url)
     const selectedProfile = resolveModelProfile(modelProfile)
     const webSearchAllowed = process.env.OPENAI_ENABLE_WEB_SEARCH === 'true'
+    const hasProductUrl = Boolean(cleanIdea.product_url)
+    const backendFetchFailed = Boolean(hasProductUrl && !productPageText)
+    const autoWebSearchFallback = Boolean(webSearchAllowed && backendFetchFailed)
     const finalProfile = {
       ...selectedProfile,
-      webSearch: Boolean(selectedProfile.webSearch && webSearchAllowed),
+      webSearch: Boolean((selectedProfile.webSearch || autoWebSearchFallback) && webSearchAllowed),
     }
 
-    const result = await callOpenAI({ idea: cleanIdea, sourceType, productPageText, selectedProfile: finalProfile })
+    const result = await callOpenAI({
+      idea: cleanIdea,
+      sourceType,
+      productPageText,
+      selectedProfile: finalProfile,
+      autoWebSearchFallback,
+    })
 
     return json(200, {
       report: result.text,
@@ -651,7 +666,14 @@ export const handler = async (event) => {
       modelProfileLabel: result.modelProfileLabel,
       productPageTextAvailable: Boolean(productPageText),
       analysisType: 'amazon_listing',
-      warning: result.usedWebSearch ? '' : (finalProfile.webSearch ? 'Đã fallback không dùng web search để tránh lỗi.' : ''),
+      sourceFallbackStep: productPageText ? 'backend_fetch' : result.usedWebSearch ? 'web_search' : 'table_data',
+      warning: productPageText
+        ? ''
+        : result.usedWebSearch
+          ? 'Backend không đọc được link, AI đã thử dùng web search.'
+          : hasProductUrl
+            ? 'Backend không đọc được link và web search không dùng được hoặc đã fallback. AI đã phân tích từ dữ liệu trong bảng.'
+            : 'Không có link sản phẩm. AI đã phân tích từ dữ liệu trong bảng.',
     })
   } catch (error) {
     return json(500, { error: error instanceof Error ? error.message : 'Không thể viết listing Amazon.' })
