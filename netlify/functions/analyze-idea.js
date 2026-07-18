@@ -1,669 +1,222 @@
-const MAX_PRODUCT_TEXT = 7000
+const MAX_PRODUCT_TEXT = 4500
 const DEFAULT_MODEL = 'gpt-4.1-mini'
 const DEFAULT_FALLBACK_MODEL = 'gpt-4.1-mini'
 
 const AMAZON_LISTING_PROMPT_TEMPLATE = `Bạn là chuyên gia nghiên cứu sản phẩm và tối ưu listing Amazon US, có kinh nghiệm với sản phẩm in 3D, đồ trang trí, quà tặng, phụ kiện bàn làm việc, fidget toys và sản phẩm cá nhân hóa.
 
 NHIỆM VỤ
-
-Phân tích sản phẩm từ đường link được cung cấp, ưu tiên các link từ MakerWorld, sau đó tạo đầy đủ thông tin có thể sử dụng để đăng bán sản phẩm vật lý trên Amazon US.
+Viết bộ thông tin listing Amazon US cho SẢN PHẨM VẬT LÝ ĐÃ ĐƯỢC IN 3D, dựa trên link sản phẩm và thông tin người dùng cung cấp.
+Không viết listing bán file STL, 3MF hoặc file thiết kế kỹ thuật số.
 
 Link sản phẩm:
 [PRODUCT_LINK]
 
-Thông tin bổ sung từ người dùng, nếu có:
+Thông tin bổ sung từ người dùng:
 [ADDITIONAL_INFORMATION]
 
-QUY TẮC PHÂN TÍCH
+QUY TẮC QUAN TRỌNG
+1. Ưu tiên phân tích link MakerWorld nếu đọc được. Nếu link không đọc được hoặc trang chặn truy cập, vẫn tiếp tục viết listing dựa trên tên idea, niche, loại sản phẩm, ghi chú, ảnh URL, chiều cao và cân nặng người dùng nhập.
+2. Không được tự ý khẳng định thông tin không có nguồn. Với thông tin chưa chắc, dùng nhãn: [Xác nhận từ nguồn], [Suy luận từ hình ảnh/tên sản phẩm], [Ước tính tham khảo], hoặc [Cần người bán xác nhận].
+3. Không copy nguyên văn mô tả của tác giả. Viết lại hoàn toàn theo phong cách Amazon US, tập trung vào lợi ích khách hàng.
+4. Không dùng claim không chứng minh được: best, number one, guaranteed, 100% safe, non-toxic, eco-friendly, unbreakable, official, licensed.
+5. Không đưa tên thương hiệu, nhân vật, đội thể thao, phim, game, người nổi tiếng hoặc IP bên thứ ba vào title/bullet/keyword nếu chưa xác nhận quyền sử dụng.
+6. Nếu có rủi ro IP, bản quyền, trademark hoặc license thương mại, cảnh báo rõ ràng. Nếu không xác nhận được quyền bán bản in vật lý, ghi: “Cần kiểm tra giấy phép thương mại trước khi sản xuất và bán sản phẩm này.”
+7. Nếu sản phẩm có bộ phận nhỏ, nam châm, pin, LED, cạnh nhọn, cơ cấu chuyển động, tiếp xúc thực phẩm/da hoặc có thể bị xem là đồ chơi trẻ em, hãy nêu rủi ro cần xác minh.
+8. Listing content viết bằng tiếng Anh tự nhiên cho Amazon US. Phần phân tích, cảnh báo và ghi chú viết bằng tiếng Việt.
+9. Không trình bày dạng bảng. Trả lời bằng tiêu đề rõ ràng, đoạn ngắn, bullet rõ.
+10. Bỏ qua A+ Content và hướng dẫn ảnh listing trong câu trả lời này để output ngắn, ổn định và dễ chạy.
 
-1. Hãy truy cập và phân tích toàn bộ thông tin có thể quan sát được từ trang sản phẩm, bao gồm:
+THÔNG TIN MẶC ĐỊNH CHO SẢN PHẨM 3D PRINT CỦA SHOP
+Áp dụng khi phù hợp và không mâu thuẫn với nguồn:
+- Sản phẩm là finished physical 3D printed product.
+- Vật liệu thường dùng: PLA hoặc PETG 3D printed plastic. Nếu chưa biết vật liệu chính, ghi “PLA/PETG 3D printed plastic [Cần người bán xác nhận]”.
+- Primary Material: Plastic.
+- Finish/Surface: 3D printed finish; có thể có layer lines nhẹ và sai khác màu nhỏ do quá trình in.
+- Care Instructions: Wipe gently with a dry or slightly damp cloth; avoid high heat, direct flame, harsh chemicals, dishwasher, and prolonged outdoor exposure unless confirmed.
+- Included Components mặc định: 1 finished 3D printed item, trừ khi người dùng cung cấp số lượng/phụ kiện khác.
+- Assembly Required: No, trừ khi sản phẩm có bộ phận lắp ráp.
+- Batteries Required/Included: No, trừ khi có LED/electronic.
+- Indoor/Outdoor Use: Indoor, trừ khi nguồn xác nhận dùng ngoài trời.
+- Country of Origin: [CONFIRM COUNTRY OF ORIGIN].
+- Brand Name: [BRAND NAME] nếu chưa có brand.
+- Manufacturer: [MANUFACTURER] nếu chưa có manufacturer.
+- Handmade: [CONFIRM HANDMADE STATUS]. Không tự chọn Yes nếu người bán chưa xác nhận.
+- Personalized: Yes chỉ khi sản phẩm thật sự cho phép nhập tên/chữ/ảnh/màu cá nhân hóa; nếu không rõ, ghi [Cần xác nhận].
 
-* Tên sản phẩm.
-* Hình ảnh sản phẩm.
-* Mô tả.
-* Cấu tạo.
-* Chức năng.
-* Mục đích sử dụng.
-* Phong cách thiết kế.
-* Đối tượng khách hàng.
-* File hoặc bộ phận đi kèm.
-* Vật liệu được đề xuất.
-* Thông số in 3D nếu có.
-* Kích thước nếu có.
-* Thông tin về tác giả hoặc giấy phép sử dụng.
-
-2. Đây là listing bán SẢN PHẨM VẬT LÝ ĐÃ ĐƯỢC IN 3D, không phải listing bán file STL, 3MF hoặc file thiết kế kỹ thuật số.
-
-3. Không được tự ý khẳng định những thông tin không xuất hiện trong nguồn.
-
-4. Với thông tin không có trên trang, có thể đưa ra đề xuất hợp lý nhưng bắt buộc phải ghi một trong các nhãn:
-
-* Xác nhận từ nguồn.
-* Suy luận từ hình ảnh.
-* Ước tính tham khảo.
-* Cần người bán xác nhận.
-
-5. Giá bán, kích thước, trọng lượng, thời gian sản xuất và chi phí chỉ được đưa dưới dạng tham khảo nếu chưa có dữ liệu chính xác.
-
-6. Không sao chép nguyên văn mô tả của tác giả. Hãy viết lại hoàn toàn theo hướng phù hợp với Amazon và tập trung vào lợi ích khách hàng.
-
-7. Không sử dụng các tuyên bố không thể chứng minh như:
-
-* Best.
-* Number one.
-* Guaranteed.
-* 100% safe.
-* Non-toxic.
-* Eco-friendly.
-* Unbreakable.
-* Official.
-* Licensed.
-
-Chỉ sử dụng khi nguồn cung cấp đủ bằng chứng và người bán xác nhận.
-
-8. Không đưa tên thương hiệu, nhân vật, đội thể thao, bộ phim, trò chơi, người nổi tiếng hoặc tài sản trí tuệ của bên thứ ba vào listing nếu chưa xác nhận quyền sử dụng.
-
-9. Nếu sản phẩm có dấu hiệu liên quan đến bản quyền, nhãn hiệu hoặc thiết kế được bảo hộ, hãy đưa ra cảnh báo rõ ràng.
-
-10. Nếu giấy phép trên MakerWorld không cho phép sử dụng thương mại hoặc không thể xác nhận quyền bán sản phẩm in vật lý, phải ghi:
-    “Cần kiểm tra giấy phép thương mại trước khi sản xuất và bán sản phẩm này.”
-
-11. Nếu sản phẩm có bộ phận nhỏ, nam châm, pin, đèn LED, cạnh nhọn, cơ cấu chuyển động hoặc có thể bị xem là đồ chơi trẻ em, phải liệt kê rủi ro tuân thủ và thông tin cần xác minh.
-
-12. Viết listing bằng tiếng Anh tự nhiên, hướng đến khách hàng Mỹ. Phần phân tích và giải thích viết bằng tiếng Việt.
-
-13. Không trình bày kết quả dưới dạng bảng. Trả lời bằng các tiêu đề và đoạn văn rõ ràng.
+ĐẦU RA CẦN VIẾT
 
 PHẦN 1 — TÓM TẮT SẢN PHẨM
-
 Tên sản phẩm gốc:
-
 Tên sản phẩm đề xuất bằng tiếng Việt:
-
 Tên sản phẩm đề xuất bằng tiếng Anh:
-
-Sản phẩm này là gì:
-
+AI hiểu sản phẩm là gì:
 Chức năng chính:
-
-Lợi ích chính đối với khách hàng:
-
+Lợi ích chính với khách hàng:
 Đối tượng khách hàng tiềm năng:
-
-Dịp sử dụng hoặc tặng quà:
-
+Dịp sử dụng/tặng quà:
 Phong cách sản phẩm:
-
-Vấn đề hoặc nhu cầu sản phẩm giải quyết:
-
 Điểm khác biệt có thể khai thác:
+Dữ liệu đã dùng: link / ảnh URL / chiều cao / cân nặng / ghi chú / niche.
 
-PHẦN 2 — MỨC ĐỘ ĐẦY ĐỦ CỦA DỮ LIỆU
-
-Liệt kê riêng:
-
+PHẦN 2 — MỨC ĐỘ ĐẦY ĐỦ DỮ LIỆU
 Thông tin đã xác nhận từ nguồn:
+Thông tin suy luận:
+Thông tin ước tính:
+Thông tin cần người bán xác nhận:
 
-Thông tin suy luận từ hình ảnh:
-
-Thông tin đang được ước tính:
-
-Thông tin người bán cần xác nhận thêm:
-
-Không được bỏ qua phần này.
-
-PHẦN 3 — PHÂN LOẠI AMAZON
-
-Đề xuất:
-
-Amazon Marketplace:
-Amazon.com – United States
-
+PHẦN 3 — AMAZON CATEGORY & PRODUCT DETAIL GỢI Ý
+Amazon Marketplace: Amazon.com – United States
 Product Type:
-
-Danh mục chính:
-
-Danh mục con:
-
-Item Type Keyword đề xuất:
-
+Main Category:
+Sub Category:
+Item Type Keyword:
 Suggested Browse Node:
-
 Brand Name:
-Điền “[BRAND NAME]” nếu chưa được cung cấp.
-
 Manufacturer:
-Điền “[MANUFACTURER]” nếu chưa được cung cấp.
-
-Model Name đề xuất:
-
-Model Number đề xuất:
-
-Part Number đề xuất:
-
-Condition:
-New
-
-Sản phẩm có cần UPC/GTIN hay không:
-
-Có thể cân nhắc GTIN Exemption hay không:
-
-Giải thích ngắn về lựa chọn Product Type và Category.
-
-PHẦN 4 — CẤU TRÚC BIẾN THỂ
-
-Xác định sản phẩm có phù hợp tạo variation hay không.
-
-Nếu có, đề xuất:
-
-Parent Product Name:
-
-Variation Theme:
-
-Các biến thể màu sắc:
-
-Các biến thể kích thước:
-
-Các biến thể kiểu dáng:
-
-Các biến thể số lượng:
-
-Quy tắc đặt Parent SKU:
-
-Quy tắc đặt Child SKU:
-
-Ví dụ 5 SKU cụ thể:
-
-Không tạo variation giữa những sản phẩm có thiết kế hoặc chức năng hoàn toàn khác nhau.
-
-PHẦN 5 — AMAZON PRODUCT TITLE
-
-Viết 3 tiêu đề Amazon bằng tiếng Anh:
-
-1. Tiêu đề ưu tiên SEO.
-2. Tiêu đề ưu tiên dễ đọc và chuyển đổi.
-3. Tiêu đề ngắn gọn, an toàn.
-
-Yêu cầu:
-
-* Không nhồi từ khóa.
-* Không viết toàn bộ bằng chữ in hoa.
-* Không dùng ký hiệu quảng cáo.
-* Không đưa giá, giảm giá hoặc thông tin vận chuyển.
-* Không đưa tên thương hiệu của bên thứ ba.
-* Không dùng từ “handmade” nếu chưa xác nhận quy trình sản xuất.
-* Không gọi là “toy” nếu chưa xác định sản phẩm đáp ứng yêu cầu tuân thủ đồ chơi.
-* Đặt tên thương hiệu ở đầu tiêu đề dưới dạng “[BRAND NAME]” nếu chưa có brand.
-* Ưu tiên tiêu đề rõ ràng, khoảng 70–150 ký tự.
-* Ghi số ký tự của từng tiêu đề.
-
-Sau đó chọn một tiêu đề tốt nhất và giải thích ngắn lý do.
-
-PHẦN 6 — ITEM HIGHLIGHT
-
-Viết một Item Highlight bằng tiếng Anh, tối đa 125 ký tự.
-
-Nội dung cần nói nhanh sản phẩm là gì, vật liệu dự kiến và mục đích sử dụng.
-
-Không đưa thông tin chưa xác nhận như một sự thật.
-
-PHẦN 7 — FIVE BULLET POINTS
-
-Viết 5 bullet points bằng tiếng Anh.
-
-Mỗi bullet gồm:
-
-TIÊU ĐỀ VIẾT HOA NGẮN – Nội dung giải thích.
-
-Cấu trúc đề xuất:
-
-Bullet 1: Lợi ích và chức năng chính.
-
-Bullet 2: Thiết kế, cơ chế hoạt động hoặc điểm thú vị.
-
-Bullet 3: Vật liệu, chất lượng hoàn thiện và quy trình sản xuất.
-
-Bullet 4: Kích thước, cách sử dụng, thành phần trong hộp hoặc lưu ý.
-
-Bullet 5: Đối tượng tặng quà, dịp sử dụng và hướng dẫn bảo quản.
-
-Yêu cầu:
-
-* Mỗi bullet khoảng 150–250 ký tự.
-* Không lặp lại toàn bộ title.
-* Tập trung vào lợi ích thực tế.
-* Không đưa cam kết tuyệt đối.
-* Khi kích thước chưa xác nhận, sử dụng placeholder như “[CONFIRM DIMENSIONS]”, không tự đưa số ước tính vào bullet chính thức.
-* Khi màu sắc có thể khác do quá trình in, có thể thêm lưu ý phù hợp.
-* Không gọi sản phẩm là dành cho trẻ em nếu chưa xác nhận tiêu chuẩn an toàn.
-
-PHẦN 8 — PRODUCT DESCRIPTION
-
-Viết một Product Description bằng tiếng Anh dài khoảng 900–1.500 ký tự.
-
-Mô tả cần gồm:
-
-* Giới thiệu sản phẩm.
-* Trải nghiệm hoặc lợi ích mang lại.
-* Cách sử dụng.
-* Phong cách và không gian phù hợp.
-* Vật liệu dự kiến.
-* Thành phần trong hộp.
-* Dịp làm quà.
-* Hướng dẫn bảo quản.
-* Lưu ý về đặc điểm tự nhiên của sản phẩm in 3D.
-
-Không sử dụng HTML trừ khi được yêu cầu.
-
-PHẦN 9 — PRODUCT ATTRIBUTES
-
-Đề xuất nội dung cho từng trường sau:
-
-Brand Name:
-
-Manufacturer:
-
 Model Name:
-
 Model Number:
-
 Part Number:
+Condition: New
+UPC/GTIN hoặc GTIN Exemption:
+Giải thích ngắn:
 
+PHẦN 4 — AMAZON PRODUCT TITLE
+Viết 3 title bằng tiếng Anh:
+1. SEO-focused title:
+2. Conversion-focused title:
+3. Safe short title:
+Ghi số ký tự cho từng title.
+Chọn title tốt nhất và giải thích ngắn.
+
+PHẦN 5 — ITEM HIGHLIGHT
+Viết 1 Item Highlight tiếng Anh, tối đa 125 ký tự.
+
+PHẦN 6 — FIVE BULLET POINTS
+Viết 5 bullet points tiếng Anh. Mỗi bullet 150–250 ký tự.
+Format: SHORT UPPERCASE HEADING – nội dung.
+Bullet 1: lợi ích/chức năng chính.
+Bullet 2: thiết kế/cơ chế/điểm thú vị.
+Bullet 3: vật liệu 3D print/hoàn thiện/quy trình.
+Bullet 4: kích thước/cách dùng/thành phần hộp/lưu ý.
+Bullet 5: đối tượng quà tặng/dịp dùng/bảo quản.
+Nếu thiếu size/weight, dùng placeholder [CONFIRM DIMENSIONS] hoặc [CONFIRM WEIGHT].
+
+PHẦN 7 — PRODUCT DESCRIPTION
+Viết Product Description tiếng Anh khoảng 700–1.100 ký tự.
+Nội dung gồm: sản phẩm là gì, trải nghiệm/lợi ích, cách dùng, không gian phù hợp, vật liệu PLA/PETG nếu phù hợp, thành phần trong hộp, dịp làm quà, bảo quản, đặc điểm tự nhiên của sản phẩm in 3D.
+
+PHẦN 8 — PRODUCT ATTRIBUTES / PRODUCT DETAILS
+Điền gợi ý cho các trường sau, dùng nhãn [Xác nhận từ nguồn], [Suy luận], [Ước tính tham khảo], [Cần xác nhận]:
+Brand Name:
+Manufacturer:
+Model Name:
+Model Number:
+Part Number:
 Material:
-
 Primary Material:
-
 Color:
-
 Color Map:
-
 Size Name:
-
 Style:
-
 Pattern:
-
 Shape:
-
 Theme:
-
 Occasion:
-
 Special Features:
-
 Recommended Uses:
-
 Room Type:
-
 Mounting Type:
-
 Finish Type:
-
 Target Audience:
-
 Age Range Description:
-
 Department:
-
 Number of Items:
-
 Number of Pieces:
-
 Unit Count:
-
-Unit Count Type:
-
 Included Components:
-
 Assembly Required:
-
 Batteries Required:
-
 Batteries Included:
-
 Indoor or Outdoor Use:
-
 Care Instructions:
-
 Country of Origin:
-Điền “[CONFIRM COUNTRY OF ORIGIN]” nếu chưa được cung cấp.
-
 Handmade:
-Chỉ chọn Yes khi người bán xác nhận phù hợp.
-
 Personalized:
-Chỉ chọn Yes khi sản phẩm thực sự cho phép khách nhập tên, chữ, ảnh hoặc lựa chọn cá nhân.
 
-Đối với mỗi trường, ghi rõ một trong bốn nhãn:
-
-* Xác nhận từ nguồn.
-* Suy luận từ hình ảnh.
-* Ước tính tham khảo.
-* Cần xác nhận.
-
-PHẦN 10 — KÍCH THƯỚC VÀ TRỌNG LƯỢNG THAM KHẢO
-
-Nếu trang nguồn cung cấp kích thước, hãy chuyển đổi sang cả:
-
-* Centimeters.
-* Inches.
-
-Nếu trang không cung cấp kích thước, hãy đề xuất ba phương án tham khảo:
-
-Small:
-
-Medium:
-
-Large:
-
-Đối với mỗi phương án, cung cấp:
-
-* Chiều dài.
-* Chiều rộng.
-* Chiều cao.
-* Kích thước bằng cm.
-* Kích thước bằng inch.
-* Trọng lượng thành phẩm dự kiến bằng gram và ounce.
-* Thời gian in dự kiến.
-* Lượng filament dự kiến.
-
-Phải ghi rõ:
-
-“Các thông số trên chỉ là ước tính tham khảo từ hình ảnh và loại sản phẩm. Người bán phải đo mẫu in thực tế trước khi đăng listing.”
-
-Đề xuất thêm:
-
-Package Dimensions tham khảo:
-
-Package Weight tham khảo:
-
-Loại hộp hoặc túi đóng gói phù hợp:
-
-Vật liệu bảo vệ khi vận chuyển:
-
-PHẦN 11 — GIÁ BÁN THAM KHẢO
-
-Đề xuất ba mức giá Amazon US:
-
-Entry Price:
-
-Recommended Price:
-
-Premium Price:
-
-Với mỗi mức giá, giải thích:
-
-* Định vị sản phẩm.
-* Khách hàng mục tiêu.
-* Điều kiện để áp dụng.
-* Rủi ro về biên lợi nhuận.
-
-Tạo một công thức giá tham khảo dựa trên:
-
-* Chi phí filament.
-* Thời gian chạy máy.
-* Chi phí lao động.
-* Điện năng và hao mòn máy.
-* Bao bì.
-* Phí vận chuyển đến kho hoặc khách hàng.
-* Amazon referral fee.
-* FBA fee hoặc chi phí FBM.
-* Chi phí quảng cáo.
-* Tỷ lệ lỗi và hàng thay thế.
-* Lợi nhuận mục tiêu.
-
-Không được khẳng định đây là giá thị trường thực tế nếu chưa nghiên cứu các listing tương tự trên Amazon.
-
-Đưa ra kết luận:
-
-Khoảng giá bán tham khảo:
-
-Mức giá nên test đầu tiên:
-
-Các chi phí cần xác nhận trước khi chốt giá:
-
-PHẦN 12 — BACKEND SEARCH TERMS
-
-Tạo:
-
-Primary Keyword:
-
-10 Secondary Keywords:
-
-10 Long-tail Keywords:
-
-Backend Search Terms:
-
-Yêu cầu với Backend Search Terms:
-
-* Viết trên một dòng.
-* Không dùng dấu phẩy nếu không cần thiết.
-* Không lặp lại từ quá nhiều lần.
-* Không dùng tên thương hiệu đối thủ.
-* Không dùng ASIN.
-* Không dùng từ khóa không liên quan.
-* Không dùng các từ mang tính quảng cáo như best, cheapest hoặc number one.
-* Ưu tiên từ đồng nghĩa, cách gọi khác, công dụng và dịp tặng quà.
-* Giữ tổng nội dung ở mức an toàn, không vượt quá khoảng 249 bytes.
-
-PHẦN 13 — PERSONALIZATION
-
-Xác định sản phẩm có thể phát triển thành sản phẩm cá nhân hóa hay không.
-
-Nếu có, đề xuất:
-
-Customization Type:
-
-Tên trường khách hàng cần nhập:
-
-Hướng dẫn nhập thông tin:
-
-Giới hạn ký tự:
-
-Các font đề xuất:
-
-Các lựa chọn màu:
-
-Các vị trí cá nhân hóa:
-
-Thông báo kiểm tra chính tả:
-
-Thông báo về bản xem trước:
-
-Thời gian sản xuất tham khảo:
-
-Mẫu Personalization Instructions bằng tiếng Anh:
-
-Không tự biến sản phẩm thành sản phẩm cá nhân hóa nếu thiết kế không phù hợp.
-
-PHẦN 14 — HƯỚNG DẪN HÌNH ẢNH LISTING
-
-Đề xuất nội dung cho 8 ảnh Amazon:
-
-Ảnh 1 — Main Image:
-Mô tả bố cục, góc chụp và sản phẩm xuất hiện.
-
-Ảnh 2 — Key Benefits:
-
-Ảnh 3 — Product Dimensions:
-
-Ảnh 4 — How It Works:
-
-Ảnh 5 — Material and Details:
-
-Ảnh 6 — Lifestyle Use:
-
-Ảnh 7 — Gift Occasion:
-
-Ảnh 8 — What Is Included:
-
-Với từng ảnh, cung cấp:
-
-* Tiêu đề trên ảnh bằng tiếng Anh.
-* Nội dung phụ.
-* Gợi ý bố cục.
-* Những chi tiết phải thể hiện.
-* Những thông tin không nên đưa lên ảnh.
-
-Không thay đổi hình dáng, cấu tạo hoặc chi tiết của sản phẩm gốc khi đề xuất mockup. Chỉ được thay đổi background, ánh sáng, bố cục và góc chụp, trừ khi người dùng yêu cầu chỉnh sửa sản phẩm.
-
-PHẦN 15 — A+ CONTENT
-
-Đề xuất cấu trúc A+ Content gồm:
-
-Module 1 — Brand Banner.
-
-Module 2 — Product Story.
-
-Module 3 — Three Main Benefits.
-
-Module 4 — Material and Craftsmanship.
-
-Module 5 — How to Use.
-
-Module 6 — Lifestyle and Gift Occasion.
-
-Module 7 — Comparison Chart.
-
-Với mỗi module, viết:
-
-* Heading bằng tiếng Anh.
-* Nội dung ngắn bằng tiếng Anh.
-* Loại hình ảnh cần chuẩn bị.
-* Mục tiêu chuyển đổi của module.
-
-Không khẳng định thương hiệu có Brand Registry nếu chưa được cung cấp.
-
-PHẦN 16 — SAFETY AND COMPLIANCE
-
-Phân tích sản phẩm có các yếu tố sau hay không:
-
-* Bộ phận nhỏ.
-* Nguy cơ hóc.
-* Nam châm.
-* Pin.
-* LED hoặc linh kiện điện.
-* Cạnh nhọn.
-* Nhiệt.
-* Tiếp xúc thực phẩm.
-* Tiếp xúc da.
-* Dành cho trẻ em.
-* Dễ cháy.
-* Cơ cấu chuyển động.
-* Hóa chất hoặc keo.
-* Vật liệu không rõ nguồn gốc.
-
-Đưa ra:
-
-Các cảnh báo có thể cần:
-
-Nhóm tuổi nên cân nhắc:
-
-Tài liệu hoặc kiểm nghiệm có thể cần:
-
-Thông tin người bán phải xác nhận:
-
-Không tự tạo chứng nhận hoặc tuyên bố sản phẩm đạt tiêu chuẩn nếu chưa có tài liệu.
-
-PHẦN 17 — RỦI RO SỞ HỮU TRÍ TUỆ VÀ GIẤY PHÉP
-
-Kiểm tra và nhận xét:
-
-Tên sản phẩm có chứa thương hiệu bên thứ ba không:
-
-Thiết kế có giống nhân vật, logo, đội thể thao, phim, game hoặc người nổi tiếng không:
-
-Giấy phép trên trang nguồn có cho phép sử dụng thương mại không:
-
-Có được phép bán bản in vật lý hay không:
-
-Có cần liên hệ tác giả để xin commercial license không:
-
-Mức độ rủi ro:
-
-* Thấp.
-* Trung bình.
-* Cao.
-* Chưa đủ dữ liệu.
-
-Giải thích rõ lý do.
-
-Không đề xuất bán sản phẩm nếu giấy phép cấm sử dụng thương mại.
-
-PHẦN 18 — THÔNG TIN CẦN NGƯỜI BÁN XÁC NHẬN
-
-Cuối cùng, tạo một danh sách ngắn những thông tin người bán phải bổ sung trước khi đăng listing, ưu tiên:
-
-* Brand.
-* Quyền sử dụng thương mại.
-* Kích thước thật.
-* Trọng lượng thật.
-* Vật liệu filament.
-* Màu sắc.
-* Số lượng sản phẩm trong hộp.
-* Phụ kiện đi kèm.
-* Quốc gia sản xuất.
-* Đối tượng sử dụng.
-* Cảnh báo an toàn.
-* Giá thành.
-* Phương thức fulfillment.
-* UPC hoặc GTIN Exemption.
-* Thời gian sản xuất.
-* Hình ảnh thành phẩm thực tế.
-
-PHẦN 19 — BẢN TÓM TẮT ĐỂ COPY VÀO HỆ THỐNG
-
-Ở cuối câu trả lời, cung cấp một phần tóm tắt ngắn theo đúng thứ tự:
-
-Recommended Product Name:
-
-Recommended Amazon Title:
-
-Item Highlight:
-
-Bullet Point 1:
-
-Bullet Point 2:
-
-Bullet Point 3:
-
-Bullet Point 4:
-
-Bullet Point 5:
-
-Product Description:
-
-Material:
-
-Color:
-
-Size:
-
+PHẦN 9 — KÍCH THƯỚC, CÂN NẶNG, PACKAGE
+Nếu người dùng đã nhập chiều cao hoặc cân nặng, dùng giá trị đó và ghi nhãn [Người dùng cung cấp].
+Nếu thiếu length/width/weight/package, dùng placeholder [CONFIRM ...], không bịa như sự thật.
 Product Dimensions:
-
+Item Height:
 Item Weight:
-
 Package Dimensions:
-
 Package Weight:
+Packaging Type:
+Protective Material:
+Ghi chú bắt buộc: “Người bán phải đo mẫu in thực tế trước khi đăng listing.”
 
-Included Components:
-
-Special Features:
-
-Occasion:
-
-Target Audience:
-
+PHẦN 10 — GIÁ BÁN THAM KHẢO NGẮN
+Entry Price:
 Recommended Price:
+Premium Price:
+Mức giá nên test đầu tiên:
+Các chi phí cần xác nhận trước khi chốt giá:
+Không khẳng định là giá thị trường thực tế nếu chưa research đối thủ.
 
+PHẦN 11 — KEYWORDS & BACKEND SEARCH TERMS
+Primary Keyword:
+10 Secondary Keywords:
+10 Long-tail Keywords:
+Backend Search Terms một dòng, dưới khoảng 249 bytes, không dùng brand đối thủ, ASIN, best/cheapest/number one.
+
+PHẦN 12 — PERSONALIZATION
+Sản phẩm có phù hợp cá nhân hóa không:
+Customization Type:
+Customer Input Field:
+Character Limit:
+Font/Color Suggestions:
+Personalization Placement:
+Personalization Instructions bằng tiếng Anh:
+Nếu không phù hợp, ghi rõ không nên ép cá nhân hóa.
+
+PHẦN 13 — SAFETY, COMPLIANCE, IP/LICENSE
+Safety risks cần kiểm tra:
+Age group nên cân nhắc:
+Warning có thể cần:
+Tài liệu/kiểm nghiệm có thể cần:
+IP/trademark/license risk:
+Có nên bán ngay không hay cần kiểm tra license:
+
+PHẦN 14 — THÔNG TIN CẦN NGƯỜI BÁN XÁC NHẬN
+Liệt kê ngắn các thông tin phải bổ sung trước khi đăng: brand, license thương mại, kích thước thật, trọng lượng thật, vật liệu chính PLA/PETG, màu sắc, số lượng, phụ kiện, country of origin, cảnh báo an toàn, giá thành, fulfillment, UPC/GTIN exemption, ảnh thành phẩm thật.
+
+PHẦN 15 — BẢN COPY NHANH ĐỂ ĐIỀN AMAZON
+Recommended Product Name:
+Recommended Amazon Title:
+Item Highlight:
+Bullet Point 1:
+Bullet Point 2:
+Bullet Point 3:
+Bullet Point 4:
+Bullet Point 5:
+Product Description:
+Material:
+Color:
+Size:
+Product Dimensions:
+Item Weight:
+Package Dimensions:
+Package Weight:
+Included Components:
+Special Features:
+Occasion:
+Target Audience:
+Recommended Price:
 Backend Search Terms:
-
 Main Safety Warning:
-
 Main IP or License Warning:
 
-Các trường chưa xác nhận phải giữ placeholder dạng “[CONFIRM …]”, không tự điền thông tin giả để làm cho listing trông hoàn chỉnh.`
+Các trường chưa xác nhận phải giữ placeholder dạng [CONFIRM ...], không tự điền thông tin giả để làm listing trông hoàn chỉnh.`
 
 const MODEL_PROFILES = {
   stable: {
@@ -954,7 +507,7 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, selectedProfi
     },
   ]
 
-  const body = { model, input }
+  const body = { model, input, max_output_tokens: 6500 }
 
   if (String(model).startsWith('gpt-5')) {
     body.reasoning = { effort: process.env.OPENAI_REASONING_EFFORT || 'low' }
@@ -968,7 +521,7 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, selectedProfi
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 60000)
+  const timeout = setTimeout(() => controller.abort(), 42000)
 
   try {
     const response = await fetch('https://api.openai.com/v1/responses', {
@@ -998,7 +551,7 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, selectedProfi
       modelProfileLabel: selectedProfile?.label || '',
     }
   } catch (error) {
-    if (error?.name === 'AbortError') throw new Error('OpenAI timeout. Vui lòng thử model ổn định hoặc tắt web search.')
+    if (error?.name === 'AbortError') throw new Error('OpenAI timeout. Prompt đã được rút gọn, nhưng vẫn quá lâu; hãy thử model ổn định hoặc tắt web search.')
     throw error
   } finally {
     clearTimeout(timeout)
@@ -1007,7 +560,7 @@ async function callOpenAIOnce({ idea, sourceType, productPageText, selectedProfi
 
 async function callOpenAI({ idea, sourceType, productPageText, selectedProfile }) {
   const wantsWebSearch = Boolean(selectedProfile?.webSearch)
-  const hasImage = isValidHttpUrl(idea?.product_image_url)
+  const hasImage = false
   const attempts = [
     { profile: selectedProfile, useWebSearch: wantsWebSearch, includeImage: hasImage },
     { profile: selectedProfile, useWebSearch: wantsWebSearch, includeImage: false },
