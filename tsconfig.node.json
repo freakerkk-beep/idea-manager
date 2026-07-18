@@ -1,23 +1,16 @@
-{
-  "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
-    "target": "es2023",
-    "lib": ["ES2023"],
-    "types": ["node"],
-    "skipLibCheck": true,
+CAP NHAT NUT THEM IDEA KHOA HOC HON
 
-    /* Bundler mode */
-    "module": "nodenext",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "noEmit": true,
+Thay doi:
+- Chi co 1 nut "+ Them idea o cuoi".
+- Nut sticky luon hien thi o cuoi man hinh khi cuon danh sach dai.
+- Khong can keo xuong cuoi bang moi bam duoc.
+- Idea moi luon duoc sap xep o cuoi danh sach, khong chen len dau hay vao giua.
+- Sau khi them, trang tu dong cuon toi hang moi va focus vao o Ten idea.
+- Nut bi khoa tam thoi trong luc dang them de tranh bam trung tao nhieu hang.
 
-    /* Linting */
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
-  },
-  "include": ["vite.config.ts"]
-}
+Cach upload:
+1. Giai nen file ZIP.
+2. Chon tat ca noi dung ben trong (src, public, package.json...).
+3. Upload vao thu muc goc repository GitHub.
+4. Commit: Improve quick add idea workflow
+5. Cho Netlify Published, sau do hard refresh.

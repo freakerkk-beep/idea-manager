@@ -1,13 +1,15 @@
-<!doctype html>
-<html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Idea Manager - Quản lý ý tưởng sản phẩm</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+# Sao chép file này thành ".env" khi chạy trên máy.
+# Không commit file ".env" lên GitHub.
+
+# Supabase Dashboard:
+# - Project URL: Integrations > Data API
+# - Publishable key: Settings > API Keys > Publishable key
+VITE_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxxxxxxxxxx
+
+# Netlify Environment variables cho AI analysis
+# Không bao giờ đặt key này thành VITE_OPENAI_API_KEY.
+OPENAI_API_KEY=sk-proj_xxxxxxxxxxxxxxxxxxxx
+OPENAI_MODEL=gpt-5-mini
+OPENAI_ENABLE_WEB_SEARCH=true
+OPENAI_REASONING_EFFORT=low

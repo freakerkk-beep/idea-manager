@@ -1,7 +1,14 @@
-{
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
-}
+BẢN SỬA NÚT THÊM IDEA
+
+Đã sửa:
+- Bấm “+ Thêm idea ở cuối” sẽ chờ hàng mới xuất hiện thật trong bảng.
+- Tự cuộn đến hàng mới.
+- Tự focus và chọn nội dung ô “Tên idea” để nhập ngay.
+- Xóa dòng chữ “Hàng mới luôn nằm ở cuối bảng...” khỏi giao diện.
+
+Cập nhật GitHub:
+1. Giải nén ZIP.
+2. Chọn toàn bộ nội dung BÊN TRONG thư mục.
+3. Upload vào thư mục gốc repository idea-manager.
+4. Commit: Fix auto scroll and focus new idea
+5. Chờ Netlify Published rồi hard refresh.

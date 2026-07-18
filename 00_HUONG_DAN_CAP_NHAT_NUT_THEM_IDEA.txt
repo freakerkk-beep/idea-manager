@@ -1,16 +1,10 @@
-CAP NHAT NUT THEM IDEA KHOA HOC HON
+-- Add Amazon listing helper fields to saved_ideas.
+-- Safe to run multiple times. Does not delete existing data.
+alter table public.saved_ideas
+  add column if not exists product_image_url text,
+  add column if not exists product_height text,
+  add column if not exists product_weight text;
 
-Thay doi:
-- Chi co 1 nut "+ Them idea o cuoi".
-- Nut sticky luon hien thi o cuoi man hinh khi cuon danh sach dai.
-- Khong can keo xuong cuoi bang moi bam duoc.
-- Idea moi luon duoc sap xep o cuoi danh sach, khong chen len dau hay vao giua.
-- Sau khi them, trang tu dong cuon toi hang moi va focus vao o Ten idea.
-- Nut bi khoa tam thoi trong luc dang them de tranh bam trung tao nhieu hang.
-
-Cach upload:
-1. Giai nen file ZIP.
-2. Chon tat ca noi dung ben trong (src, public, package.json...).
-3. Upload vao thu muc goc repository GitHub.
-4. Commit: Improve quick add idea workflow
-5. Cho Netlify Published, sau do hard refresh.
+comment on column public.saved_ideas.product_image_url is 'Reference image or mockup URL for Amazon listing AI prompt.';
+comment on column public.saved_ideas.product_height is 'Seller-entered product height, e.g. 12 cm / 4.7 in.';
+comment on column public.saved_ideas.product_weight is 'Seller-entered finished product weight, e.g. 85 g / 3 oz.';
