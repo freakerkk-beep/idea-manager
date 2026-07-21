@@ -136,6 +136,7 @@ export function SavedIdeas() {
       product_url: idea.product_url ?? '',
       product_image_url: idea.product_image_url ?? '',
       product_height: idea.product_height ?? '',
+      product_width: idea.product_width ?? '',
       product_weight: idea.product_weight ?? '',
       target_customer: idea.target_customer ?? '',
       priority: idea.priority,
@@ -248,6 +249,7 @@ export function SavedIdeas() {
       'Link sản phẩm',
       'Ảnh sản phẩm',
       'Chiều cao',
+      'Chiều ngang',
       'Cân nặng',
       'Đối tượng khách hàng',
       'Mức độ ưu tiên',
@@ -264,6 +266,7 @@ export function SavedIdeas() {
       idea.product_url ?? '',
       idea.product_image_url ?? '',
       idea.product_height ?? '',
+      idea.product_width ?? '',
       idea.product_weight ?? '',
       idea.target_customer ?? '',
       idea.priority,
@@ -381,7 +384,7 @@ export function SavedIdeas() {
       </div>
 
       <div className="table-scroll flex-1 overflow-auto px-6 py-4">
-        <table className="idea-grid-table min-w-[1950px] border-separate border-spacing-0 text-sm">
+        <table className="idea-grid-table min-w-[2050px] border-separate border-spacing-0 text-sm">
           <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
             <tr>
               <th className="sticky top-0 w-10 border-b border-slate-200 bg-slate-100 px-2 py-2">
@@ -394,6 +397,7 @@ export function SavedIdeas() {
               <th className="sticky top-0 min-w-[170px] border-b border-slate-200 bg-slate-100 px-2 py-2">Link sản phẩm</th>
               <th className="sticky top-0 min-w-[160px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ảnh sản phẩm</th>
               <th className="sticky top-0 min-w-[100px] border-b border-slate-200 bg-slate-100 px-2 py-2">Chiều cao</th>
+              <th className="sticky top-0 min-w-[100px] border-b border-slate-200 bg-slate-100 px-2 py-2">Chiều ngang</th>
               <th className="sticky top-0 min-w-[100px] border-b border-slate-200 bg-slate-100 px-2 py-2">Cân nặng</th>
               <th className="sticky top-0 min-w-[140px] border-b border-slate-200 bg-slate-100 px-2 py-2">Đối tượng KH</th>
               <th className="sticky top-0 min-w-[120px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ưu tiên</th>
@@ -426,6 +430,10 @@ export function SavedIdeas() {
                 <td className="px-1 py-1 align-top">
                   <TextCell value={idea.product_height ?? ''} onCommit={(value) => commit(idea.id, { product_height: value } as Partial<SavedIdea>)} />
                   <div className="px-2 py-0.5 text-[11px] text-slate-400">VD: 12 cm</div>
+                </td>
+                <td className="px-1 py-1 align-top">
+                  <TextCell value={idea.product_width ?? ''} onCommit={(value) => commit(idea.id, { product_width: value } as Partial<SavedIdea>)} />
+                  <div className="px-2 py-0.5 text-[11px] text-slate-400">VD: 10 cm</div>
                 </td>
                 <td className="px-1 py-1 align-top">
                   <TextCell value={idea.product_weight ?? ''} onCommit={(value) => commit(idea.id, { product_weight: value } as Partial<SavedIdea>)} />

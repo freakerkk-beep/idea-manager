@@ -67,6 +67,7 @@ export interface Idea {
   product_url: string | null
   product_image_url: string | null
   product_height: string | null
+  product_width: string | null
   product_weight: string | null
   target_customer: string | null
   priority: Priority
@@ -98,6 +99,7 @@ export interface SavedIdea {
   product_url: string | null
   product_image_url: string | null
   product_height: string | null
+  product_width: string | null
   product_weight: string | null
   target_customer: string | null
   priority: Priority

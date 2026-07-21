@@ -15,7 +15,7 @@ Thông tin bổ sung từ người dùng:
 [ADDITIONAL_INFORMATION]
 
 QUY TẮC QUAN TRỌNG
-1. Ưu tiên phân tích link MakerWorld nếu đọc được. Nếu link không đọc được hoặc trang chặn truy cập, vẫn tiếp tục viết listing dựa trên tên idea, niche, loại sản phẩm, ghi chú, ảnh URL, chiều cao và cân nặng người dùng nhập.
+1. Ưu tiên phân tích link MakerWorld nếu đọc được. Nếu link không đọc được hoặc trang chặn truy cập, vẫn tiếp tục viết listing dựa trên tên idea, niche, loại sản phẩm, ghi chú, ảnh URL, chiều cao, chiều ngang và cân nặng người dùng nhập.
 2. Không được tự ý khẳng định thông tin không có nguồn. Với thông tin chưa chắc, dùng nhãn: [Xác nhận từ nguồn], [Suy luận từ hình ảnh/tên sản phẩm], [Ước tính tham khảo], hoặc [Cần người bán xác nhận].
 3. Không copy nguyên văn mô tả của tác giả. Viết lại hoàn toàn theo phong cách Amazon US, tập trung vào lợi ích khách hàng.
 4. Không dùng claim không chứng minh được: best, number one, guaranteed, 100% safe, non-toxic, eco-friendly, unbreakable, official, licensed.
@@ -56,7 +56,7 @@ Lợi ích chính với khách hàng:
 Dịp sử dụng/tặng quà:
 Phong cách sản phẩm:
 Điểm khác biệt có thể khai thác:
-Dữ liệu đã dùng: link / ảnh URL / chiều cao / cân nặng / ghi chú / niche.
+Dữ liệu đã dùng: link / ảnh URL / chiều cao / chiều ngang / cân nặng / ghi chú / niche.
 
 PHẦN 2 — MỨC ĐỘ ĐẦY ĐỦ DỮ LIỆU
 Thông tin đã xác nhận từ nguồn:
@@ -144,10 +144,11 @@ Handmade:
 Personalized:
 
 PHẦN 9 — KÍCH THƯỚC, CÂN NẶNG, PACKAGE
-Nếu người dùng đã nhập chiều cao hoặc cân nặng, dùng giá trị đó và ghi nhãn [Người dùng cung cấp].
+Nếu người dùng đã nhập chiều cao, chiều ngang hoặc cân nặng, dùng giá trị đó và ghi nhãn [Người dùng cung cấp].
 Nếu thiếu length/width/weight/package, dùng placeholder [CONFIRM ...], không bịa như sự thật.
 Product Dimensions:
 Item Height:
+Item Width:
 Item Weight:
 Package Dimensions:
 Package Weight:
@@ -243,7 +244,8 @@ QUY TẮC
 - Chỉ xuất đúng những trường bên dưới.
 - Sản phẩm mặc định là finished physical 3D printed product, không phải file STL/3MF.
 - Vật liệu mặc định của shop: PLA hoặc PETG 3D printed plastic. Nếu chưa xác nhận chính xác, ghi [PLA/PETG 3D printed plastic - Cần người bán xác nhận].
-- Nếu link hoặc ảnh không đọc được, vẫn viết listing dựa trên tên idea, niche, loại sản phẩm, chiều cao, cân nặng, ghi chú và các thông tin có sẵn.
+- Nếu link hoặc ảnh không đọc được, vẫn viết listing dựa trên tên idea, niche, loại sản phẩm, chiều cao, chiều ngang, cân nặng, ghi chú và các thông tin có sẵn.
+- Nếu có chiều cao và chiều ngang, gộp vào trường Dimensions theo dạng Height x Width hoặc H x W. Không thêm trường ngoài mẫu.
 
 HÃY TRẢ KẾT QUẢ THEO MẪU SAU
 
@@ -320,6 +322,8 @@ THÔNG TIN NGƯỜI DÙNG CÓ THỂ CUNG CẤP
 - Product name
 - Material
 - Dimensions
+- Height
+- Width
 - Weight
 - Color
 - Product use
@@ -500,6 +504,7 @@ function getCleanIdea(idea) {
     product_url: cleanOptionalValue(idea?.product_url),
     product_image_url: cleanOptionalValue(idea?.product_image_url),
     product_height: cleanOptionalValue(idea?.product_height),
+    product_width: cleanOptionalValue(idea?.product_width),
     product_weight: cleanOptionalValue(idea?.product_weight),
     target_customer: cleanOptionalValue(idea?.target_customer),
     priority: cleanOptionalValue(idea?.priority),
@@ -520,6 +525,7 @@ function formatAdditionalInformation(idea, productPageText, imageInputNote) {
     ['Link sản phẩm', cleanIdea.product_url],
     ['Ảnh sản phẩm / mockup URL', cleanIdea.product_image_url],
     ['Chiều cao sản phẩm', cleanIdea.product_height],
+    ['Chiều ngang sản phẩm', cleanIdea.product_width],
     ['Cân nặng sản phẩm', cleanIdea.product_weight],
     ['Đối tượng khách hàng', cleanIdea.target_customer],
     ['Mức ưu tiên', cleanIdea.priority],
@@ -542,7 +548,7 @@ function formatAdditionalInformation(idea, productPageText, imageInputNote) {
 
   if (imageInputNote) filledRows.push(`- Ghi chú xử lý ảnh: ${imageInputNote}`)
 
-  filledRows.push('- Lưu ý quan trọng: Tất cả trường bổ sung như ảnh, chiều cao, cân nặng, đối tượng khách hàng và ghi chú đều là tùy chọn. Không được từ chối tạo listing chỉ vì thiếu trường. Nếu thiếu dữ liệu, hãy dùng placeholder [CONFIRM ...] hoặc ghi rõ Cần xác nhận theo quy tắc prompt.')
+  filledRows.push('- Lưu ý quan trọng: Tất cả trường bổ sung như ảnh, chiều cao, chiều ngang, cân nặng, đối tượng khách hàng và ghi chú đều là tùy chọn. Không được từ chối tạo listing chỉ vì thiếu trường. Nếu thiếu dữ liệu, hãy dùng placeholder [CONFIRM ...] hoặc ghi rõ Cần xác nhận theo quy tắc prompt.')
 
   return filledRows.join('\n')
 }

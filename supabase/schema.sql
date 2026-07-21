@@ -49,6 +49,10 @@ create table if not exists ideas (
   sub_niche_id uuid references sub_niches(id) on delete set null,
   product_type_id uuid references product_types(id) on delete set null,
   product_url text,
+  product_image_url text,
+  product_height text,
+  product_width text,
+  product_weight text,
   target_customer text,
   priority text not null default 'Chưa đánh giá'
     check (priority in ('Chưa đánh giá','Thấp','Trung bình','Cao')),
@@ -77,6 +81,10 @@ create table if not exists saved_ideas (
   product_type_id uuid,
   product_type_name text,
   product_url text,
+  product_image_url text,
+  product_height text,
+  product_width text,
+  product_weight text,
   target_customer text,
   priority text not null default 'Chưa đánh giá'
     check (priority in ('Chưa đánh giá','Thấp','Trung bình','Cao')),
