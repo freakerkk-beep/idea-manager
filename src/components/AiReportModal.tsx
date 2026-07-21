@@ -19,6 +19,9 @@ function cleanReportText(text: string) {
   try {
     const parsed = JSON.parse(text)
     if (parsed && typeof parsed === 'object') {
+      if (typeof parsed.content === 'string' && parsed.content.trim()) return parsed.content.trim()
+      if (typeof parsed.report === 'string' && parsed.report.trim()) return parsed.report.trim()
+      if (typeof parsed.report_markdown === 'string' && parsed.report_markdown.trim()) return parsed.report_markdown.trim()
       const lines: string[] = []
       if (parsed.tool_label) lines.push(`# ${parsed.tool_label}`)
       if (parsed.idea_name) lines.push(`Idea: ${parsed.idea_name}`)
@@ -108,7 +111,7 @@ export function AiReportModal({
       <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Amazon listing</h2>
+            <h2 className="text-lg font-semibold text-slate-900">{regenerateLabel || 'AI listing'}</h2>
             <p className="mt-1 text-sm text-slate-500">{title}</p>
             {latestReport && !loading && (
               <p className="mt-1 text-xs text-slate-400">
@@ -127,7 +130,7 @@ export function AiReportModal({
         <div className="flex-1 overflow-auto px-5 py-4">
           {loading && (
             <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              AI đang viết nội dung listing Amazon dạng text gọn để dễ copy sang Seller Central.
+              AI đang viết nội dung listing dạng text gọn để dễ copy sang hệ thống bán hàng.
             </div>
           )}
 
@@ -145,7 +148,7 @@ export function AiReportModal({
 
           {!loading && !error && !text && (
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-              Chưa có bản listing Amazon cho idea này.
+              Chưa có bản listing cho idea này.
             </div>
           )}
         </div>
@@ -165,7 +168,7 @@ export function AiReportModal({
               disabled={loading}
               className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
             >
-              {loading ? 'Đang viết...' : regenerateLabel || (text ? 'Viết lại listing' : 'Viết listing Amazon')}
+              {loading ? 'Đang viết...' : regenerateLabel || (text ? 'Viết lại listing' : 'Viết listing')}
             </button>
           )}
         </div>

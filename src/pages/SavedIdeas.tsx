@@ -186,14 +186,14 @@ export function SavedIdeas() {
       })
       await refetchAiReports()
       setAiModal({ open: true, idea, report: result.report, loading: false, error: null, analysisType })
-      showToast(`Đã chạy ${tool?.shortLabel ?? 'Amazon listing'}`, 'success')
+      showToast(`Đã chạy ${tool?.shortLabel ?? 'AI listing'}`, 'success')
     } catch (e) {
       setAiModal({
         open: true,
         idea,
         report: latestReportFor(idea.id, analysisType)?.report_markdown ?? '',
         loading: false,
-        error: e instanceof Error ? e.message : 'Không thể chạy Amazon listing',
+        error: e instanceof Error ? e.message : 'Không thể chạy AI listing',
         analysisType,
       })
     } finally {
@@ -453,12 +453,12 @@ export function SavedIdeas() {
                   <details className="group relative inline-block text-left">
                     <summary
                       className="cursor-pointer list-none rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 group-open:bg-indigo-700 [&::-webkit-details-marker]:hidden"
-                      title="Viết thông tin listing Amazon cho idea đã lưu"
+                      title="Viết thông tin listing Amazon hoặc Shopify cho idea đã lưu"
                     >
-                      {runningAiKey?.startsWith(`${idea.id}:`) ? 'Đang viết...' : 'Amazon listing'}
+                      {runningAiKey?.startsWith(`${idea.id}:`) ? 'Đang viết...' : 'AI listing'}
                     </summary>
                     <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-2 text-left shadow-xl">
-                      <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Dùng để điền listing Amazon</p>
+                      <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Dùng để điền Amazon / Shopify</p>
                       <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 p-2" onClick={(event) => event.stopPropagation()}>
                         <label className="mb-1 block text-[11px] font-semibold text-slate-500">Chọn model cho lần hỏi này</label>
                         <select
@@ -503,7 +503,7 @@ export function SavedIdeas() {
                             event.currentTarget.closest('details')?.removeAttribute('open')
                             openLatestAiReport(idea, (() => {
                               const reportType = getAiReportType(latestReportBySavedIdeaId.get(idea.id))
-                              return reportType === 'amazon_listing'
+                              return reportType && reportType !== 'legacy'
                                 ? reportType
                                 : 'amazon_listing'
                             })())

@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 import type { AiReport } from '../types'
 
-export type AiAnalysisType = 'amazon_listing'
+export type AiAnalysisType = 'amazon_listing' | 'shopify_listing'
 export type AiModelProfile = 'stable' | 'cheap' | 'balanced' | 'strong' | 'research'
 
 export const AI_MODEL_PROFILES: Array<{
@@ -47,7 +47,13 @@ export const AI_ANALYSIS_TOOLS: Array<{ type: AiAnalysisType; label: string; sho
     type: 'amazon_listing',
     label: 'Viết listing Amazon',
     shortLabel: 'Amazon listing',
-    description: 'Tạo title, bullet points, description, search terms và checklist ảnh cho Amazon US.',
+    description: 'Tạo title, bullet points, description, search terms và product details cho Amazon US.',
+  },
+  {
+    type: 'shopify_listing',
+    label: 'Viết listing Shopify',
+    shortLabel: 'Shopify listing',
+    description: 'Tạo title, description, category, price, inventory, shipping, variant và SEO cho Shopify.',
   },
 ]
 
