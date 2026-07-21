@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 import { useAppData } from '../hooks/useAppData'
 import { useToast } from '../hooks/useToast'
 import { deleteSavedIdeas, updateSavedIdea } from '../services/ideas'
@@ -68,6 +68,38 @@ export function SavedIdeas() {
   }>({ open: false, idea: null, report: '', loading: false, error: null, analysisType: 'amazon_listing' })
   const [runningAiKey, setRunningAiKey] = useState<string | null>(null)
   const [aiModelProfile, setAiModelProfile] = useState<AiModelProfile>('stable')
+  const [openAiMenu, setOpenAiMenu] = useState<{ ideaId: string; left: number; top: number } | null>(null)
+
+  useEffect(() => {
+    if (!openAiMenu) return undefined
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpenAiMenu(null)
+    }
+
+    function closeOnOutsideClick(event: globalThis.MouseEvent) {
+      const target = event.target as HTMLElement | null
+      if (target?.closest('[data-ai-tools-menu="true"]')) return
+      if (target?.closest('[data-ai-tools-trigger="true"]')) return
+      setOpenAiMenu(null)
+    }
+
+    function closeOnViewportChange() {
+      setOpenAiMenu(null)
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    window.addEventListener('keydown', closeOnEscape)
+    window.addEventListener('resize', closeOnViewportChange)
+    window.addEventListener('scroll', closeOnViewportChange, true)
+
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      window.removeEventListener('keydown', closeOnEscape)
+      window.removeEventListener('resize', closeOnViewportChange)
+      window.removeEventListener('scroll', closeOnViewportChange, true)
+    }
+  }, [openAiMenu])
 
   const statusNames = Array.from(new Set([
     ...catalog.statusOptions.filter((status) => status.is_active).map((status) => status.name),
@@ -212,6 +244,98 @@ export function SavedIdeas() {
       error: null,
       analysisType,
     })
+  }
+
+  function toggleAiMenu(ideaId: string, event: MouseEvent<HTMLButtonElement>) {
+    const buttonRect = event.currentTarget.getBoundingClientRect()
+    const menuWidth = 288
+    const menuHeight = 420
+    const margin = 12
+    const spaceBelow = window.innerHeight - buttonRect.bottom
+    const top = spaceBelow >= menuHeight + margin
+      ? buttonRect.bottom + margin
+      : Math.max(margin, buttonRect.top - menuHeight - margin)
+    const left = Math.min(
+      window.innerWidth - menuWidth - margin,
+      Math.max(margin, buttonRect.right - menuWidth),
+    )
+
+    setOpenAiMenu((current) => current?.ideaId === ideaId ? null : { ideaId, left, top })
+  }
+
+  function closeAiMenu() {
+    setOpenAiMenu(null)
+  }
+
+  function renderAiToolsMenu() {
+    if (!openAiMenu) return null
+    const idea = filtered.find((item) => item.id === openAiMenu.ideaId)
+      ?? savedIdeas.find((item) => item.id === openAiMenu.ideaId)
+    if (!idea) return null
+
+    return (
+      <div
+        data-ai-tools-menu="true"
+        className="fixed z-[1000] max-h-[calc(100vh-24px)] w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 text-left shadow-2xl"
+        style={{ left: openAiMenu.left, top: openAiMenu.top }}
+      >
+        <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Dùng để điền Amazon / Shopify</p>
+        <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+          <label className="mb-1 block text-[11px] font-semibold text-slate-500">Chọn model cho lần hỏi này</label>
+          <select
+            value={aiModelProfile}
+            onChange={(event) => setAiModelProfile(event.target.value as AiModelProfile)}
+            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 outline-none focus:border-indigo-500"
+          >
+            {AI_MODEL_PROFILES.map((profile) => (
+              <option key={profile.profile} value={profile.profile}>{profile.label}</option>
+            ))}
+          </select>
+          <p className="mt-1 text-[11px] leading-4 text-slate-500">
+            {AI_MODEL_PROFILES.find((profile) => profile.profile === aiModelProfile)?.recommendedFor}
+          </p>
+        </div>
+        {AI_ANALYSIS_TOOLS.map((tool) => {
+          const hasReport = latestReportBySavedIdeaAndType.has(`${idea.id}:${tool.type}`)
+          const isRunning = runningAiKey === `${idea.id}:${tool.type}`
+          return (
+            <button
+              key={tool.type}
+              type="button"
+              disabled={Boolean(runningAiKey)}
+              onClick={() => {
+                closeAiMenu()
+                handleAnalyzeIdea(idea, tool.type)
+              }}
+              className="w-full rounded-lg px-2 py-2 text-left text-xs hover:bg-slate-50 disabled:opacity-50"
+            >
+              <span className="block font-semibold text-slate-800">
+                {isRunning ? 'Đang chạy...' : tool.label}
+                {hasReport && <span className="ml-1 text-emerald-600">✓</span>}
+              </span>
+              <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{tool.description}</span>
+            </button>
+          )
+        })}
+        {latestReportBySavedIdeaId.has(idea.id) && (
+          <button
+            type="button"
+            onClick={() => {
+              closeAiMenu()
+              openLatestAiReport(idea, (() => {
+                const reportType = getAiReportType(latestReportBySavedIdeaId.get(idea.id))
+                return reportType && reportType !== 'legacy'
+                  ? reportType
+                  : 'amazon_listing'
+              })())
+            }}
+            className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-left text-xs font-semibold text-indigo-600 hover:bg-indigo-50"
+          >
+            Xem report gần nhất
+          </button>
+        )}
+      </div>
+    )
   }
 
   function toggleSelect(id: string) {
@@ -458,82 +582,29 @@ export function SavedIdeas() {
                   {new Date(idea.saved_at).toLocaleDateString('vi-VN')}
                 </td>
                 <td className="px-2 py-2 text-center align-top">
-                  <details className="group relative inline-block text-left">
-                    <summary
-                      className="cursor-pointer list-none rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 group-open:bg-indigo-700 [&::-webkit-details-marker]:hidden"
-                      title="Viết thông tin listing Amazon hoặc Shopify cho idea đã lưu"
-                    >
-                      {runningAiKey?.startsWith(`${idea.id}:`) ? 'Đang viết...' : 'AI listing'}
-                    </summary>
-                    <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-2 text-left shadow-xl">
-                      <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Dùng để điền Amazon / Shopify</p>
-                      <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 p-2" onClick={(event) => event.stopPropagation()}>
-                        <label className="mb-1 block text-[11px] font-semibold text-slate-500">Chọn model cho lần hỏi này</label>
-                        <select
-                          value={aiModelProfile}
-                          onChange={(event) => setAiModelProfile(event.target.value as AiModelProfile)}
-                          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 outline-none focus:border-indigo-500"
-                        >
-                          {AI_MODEL_PROFILES.map((profile) => (
-                            <option key={profile.profile} value={profile.profile}>{profile.label}</option>
-                          ))}
-                        </select>
-                        <p className="mt-1 text-[11px] leading-4 text-slate-500">
-                          {AI_MODEL_PROFILES.find((profile) => profile.profile === aiModelProfile)?.recommendedFor}
-                        </p>
-                      </div>
-                      {AI_ANALYSIS_TOOLS.map((tool) => {
-                        const hasReport = latestReportBySavedIdeaAndType.has(`${idea.id}:${tool.type}`)
-                        const isRunning = runningAiKey === `${idea.id}:${tool.type}`
-                        return (
-                          <button
-                            key={tool.type}
-                            type="button"
-                            disabled={Boolean(runningAiKey)}
-                            onClick={(event) => {
-                              event.currentTarget.closest('details')?.removeAttribute('open')
-                              handleAnalyzeIdea(idea, tool.type)
-                            }}
-                            className="w-full rounded-lg px-2 py-2 text-left text-xs hover:bg-slate-50 disabled:opacity-50"
-                          >
-                            <span className="block font-semibold text-slate-800">
-                              {isRunning ? 'Đang chạy...' : tool.label}
-                              {hasReport && <span className="ml-1 text-emerald-600">✓</span>}
-                            </span>
-                            <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{tool.description}</span>
-                          </button>
-                        )
-                      })}
-                      {latestReportBySavedIdeaId.has(idea.id) && (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.currentTarget.closest('details')?.removeAttribute('open')
-                            openLatestAiReport(idea, (() => {
-                              const reportType = getAiReportType(latestReportBySavedIdeaId.get(idea.id))
-                              return reportType && reportType !== 'legacy'
-                                ? reportType
-                                : 'amazon_listing'
-                            })())
-                          }}
-                          className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-left text-xs font-semibold text-indigo-600 hover:bg-indigo-50"
-                        >
-                          Xem report gần nhất
-                        </button>
-                      )}
-                    </div>
-                  </details>
+                  <button
+                    type="button"
+                    data-ai-tools-trigger="true"
+                    aria-expanded={openAiMenu?.ideaId === idea.id}
+                    onClick={(event) => toggleAiMenu(idea.id, event)}
+                    className="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 aria-expanded:bg-indigo-700"
+                    title="Viết thông tin listing Amazon hoặc Shopify cho idea đã lưu"
+                  >
+                    {runningAiKey?.startsWith(`${idea.id}:`) ? 'Đang viết...' : 'AI listing'}
+                  </button>
                 </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={16} className="px-4 py-8 text-center text-sm text-slate-400">Chưa có idea nào được lưu.</td>
+                <td colSpan={17} className="px-4 py-8 text-center text-sm text-slate-400">Chưa có idea nào được lưu.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {renderAiToolsMenu()}
 
       <ConfirmDialog
         open={confirmDeleteOpen}
