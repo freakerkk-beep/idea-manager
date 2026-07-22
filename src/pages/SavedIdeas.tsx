@@ -166,6 +166,8 @@ export function SavedIdeas() {
       sub_niche: idea.sub_niche_name ?? '',
       product_type: idea.product_type_name ?? '',
       product_url: idea.product_url ?? '',
+      saved_product_url: idea.saved_product_url ?? '',
+      video_url: idea.video_url ?? '',
       product_image_url: idea.product_image_url ?? '',
       product_height: idea.product_height ?? '',
       product_width: idea.product_width ?? '',
@@ -371,11 +373,12 @@ export function SavedIdeas() {
       'Niche con',
       'Loại sản phẩm',
       'Link sản phẩm',
+      'Link sản phẩm đã lưu',
+      'Link video',
       'Ảnh sản phẩm',
       'Chiều cao',
       'Chiều ngang',
       'Cân nặng',
-      'Đối tượng khách hàng',
       'Mức độ ưu tiên',
       'Trạng thái',
       'Owner',
@@ -388,11 +391,12 @@ export function SavedIdeas() {
       idea.sub_niche_name ?? '',
       idea.product_type_name ?? '',
       idea.product_url ?? '',
+      idea.saved_product_url ?? '',
+      idea.video_url ?? '',
       idea.product_image_url ?? '',
       idea.product_height ?? '',
       idea.product_width ?? '',
       idea.product_weight ?? '',
-      idea.target_customer ?? '',
       idea.priority,
       idea.status,
       idea.assignee_name ?? '',
@@ -508,7 +512,7 @@ export function SavedIdeas() {
       </div>
 
       <div className="table-scroll flex-1 overflow-auto px-6 py-4">
-        <table className="idea-grid-table min-w-[2050px] border-separate border-spacing-0 text-sm">
+        <table className="idea-grid-table min-w-[2250px] border-separate border-spacing-0 text-sm">
           <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
             <tr>
               <th className="sticky top-0 w-10 border-b border-slate-200 bg-slate-100 px-2 py-2">
@@ -519,11 +523,12 @@ export function SavedIdeas() {
               <th className="sticky top-0 min-w-[130px] border-b border-slate-200 bg-slate-100 px-2 py-2">Niche con</th>
               <th className="sticky top-0 min-w-[130px] border-b border-slate-200 bg-slate-100 px-2 py-2">Loại sản phẩm</th>
               <th className="sticky top-0 min-w-[170px] border-b border-slate-200 bg-slate-100 px-2 py-2">Link sản phẩm</th>
+              <th className="sticky top-0 min-w-[170px] border-b border-slate-200 bg-slate-100 px-2 py-2">Link SP đã lưu</th>
+              <th className="sticky top-0 min-w-[160px] border-b border-slate-200 bg-slate-100 px-2 py-2">Link video</th>
               <th className="sticky top-0 min-w-[160px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ảnh sản phẩm</th>
               <th className="sticky top-0 min-w-[100px] border-b border-slate-200 bg-slate-100 px-2 py-2">Chiều cao</th>
               <th className="sticky top-0 min-w-[100px] border-b border-slate-200 bg-slate-100 px-2 py-2">Chiều ngang</th>
               <th className="sticky top-0 min-w-[100px] border-b border-slate-200 bg-slate-100 px-2 py-2">Cân nặng</th>
-              <th className="sticky top-0 min-w-[140px] border-b border-slate-200 bg-slate-100 px-2 py-2">Đối tượng KH</th>
               <th className="sticky top-0 min-w-[120px] border-b border-slate-200 bg-slate-100 px-2 py-2">Ưu tiên</th>
               <th className="sticky top-0 min-w-[140px] border-b border-slate-200 bg-slate-100 px-2 py-2">Trạng thái</th>
               <th className="sticky top-0 min-w-[130px] border-b border-slate-200 bg-slate-100 px-2 py-2">Owner</th>
@@ -548,6 +553,14 @@ export function SavedIdeas() {
                   <UrlCell value={idea.product_url ?? ''} onCommit={(value) => commit(idea.id, { product_url: value })} />
                 </td>
                 <td className="px-1 py-1 align-top">
+                  <UrlCell value={idea.saved_product_url ?? ''} onCommit={(value) => commit(idea.id, { saved_product_url: value } as Partial<SavedIdea>)} />
+                  <div className="px-2 py-0.5 text-[11px] text-slate-400">Link đã lưu / listing</div>
+                </td>
+                <td className="px-1 py-1 align-top">
+                  <UrlCell value={idea.video_url ?? ''} onCommit={(value) => commit(idea.id, { video_url: value } as Partial<SavedIdea>)} />
+                  <div className="px-2 py-0.5 text-[11px] text-slate-400">TikTok / Drive / Reel</div>
+                </td>
+                <td className="px-1 py-1 align-top">
                   <UrlCell value={idea.product_image_url ?? ''} onCommit={(value) => commit(idea.id, { product_image_url: value } as Partial<SavedIdea>)} />
                   <div className="px-2 py-0.5 text-[11px] text-slate-400">Ảnh / mockup URL</div>
                 </td>
@@ -562,9 +575,6 @@ export function SavedIdeas() {
                 <td className="px-1 py-1 align-top">
                   <TextCell value={idea.product_weight ?? ''} onCommit={(value) => commit(idea.id, { product_weight: value } as Partial<SavedIdea>)} />
                   <div className="px-2 py-0.5 text-[11px] text-slate-400">VD: 85 g</div>
-                </td>
-                <td className="px-1 py-1 align-top">
-                  <TextCell value={idea.target_customer ?? ''} onCommit={(value) => commit(idea.id, { target_customer: value })} />
                 </td>
                 <td className="px-1 py-1 align-top">
                   <SelectCell value={idea.priority} options={PRIORITY_OPTIONS} onCommit={(value: Priority) => commit(idea.id, { priority: value })} />
@@ -597,7 +607,7 @@ export function SavedIdeas() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={17} className="px-4 py-8 text-center text-sm text-slate-400">Chưa có idea nào được lưu.</td>
+                <td colSpan={18} className="px-4 py-8 text-center text-sm text-slate-400">Chưa có idea nào được lưu.</td>
               </tr>
             )}
           </tbody>
