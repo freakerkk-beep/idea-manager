@@ -1,0 +1,17 @@
+BẢN CẬP NHẬT: LỌC IDEA ĐÃ LƯU THEO NGÀY
+
+Tính năng mới:
+- Chọn Từ ngày và Đến ngày trong tab Idea đã lưu.
+- Nút Hôm nay để lọc nhanh các idea lưu trong ngày hiện tại.
+- Nút Xóa lọc ngày để trở về toàn bộ dữ liệu.
+- Số lượng idea hiển thị tự cập nhật theo bộ lọc.
+- Xuất CSV chỉ xuất các idea đang được lọc.
+
+Upload lên GitHub:
+1. Mở thư mục này.
+2. Chọn toàn bộ nội dung BÊN TRONG (src, public, package.json...).
+3. Upload vào thư mục gốc repository GitHub, không upload cả thư mục cha.
+4. Commit: Add saved idea date filter
+5. Chờ Netlify Published rồi hard refresh.
+
+Không cần chạy SQL và không cần sửa Supabase.

@@ -1,0 +1,17 @@
+BẢN CẬP NHẬT: THÊM TRƯỜNG CHIỀU NGANG SẢN PHẨM
+
+Patch này thêm cột Chiều ngang trong tab Idea đã lưu.
+AI Tools Amazon Listing và Shopify Listing sẽ dùng thêm trường này khi viết Dimensions/Product Details/Shipping.
+
+Các file chính thay đổi:
+- src/pages/SavedIdeas.tsx
+- src/types/index.ts
+- netlify/functions/analyze-idea.js
+- supabase/migrate_saved_idea_listing_fields.sql
+- supabase/migrate_saved_idea_product_width.sql
+
+Sau khi upload code lên GitHub và deploy Netlify, cần chạy SQL trong Supabase SQL Editor:
+
+supabase/migrate_saved_idea_product_width.sql
+
+Nếu không chạy SQL này, web có thể báo lỗi khi lưu chiều ngang vì database chưa có cột product_width.

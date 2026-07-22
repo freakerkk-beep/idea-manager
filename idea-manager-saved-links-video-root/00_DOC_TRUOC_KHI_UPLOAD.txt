@@ -1,0 +1,16 @@
+BẢN CẬP NHẬT: CHỈ CÓ 1 NÚT “+ THÊM HÀNG” Ở CUỐI BẢNG
+
+Thay đổi:
+- Xóa nút “+ Thêm hàng” nằm xen kẽ giữa các idea.
+- Chỉ giữ duy nhất 1 nút “+ Thêm hàng” ở hàng cuối cùng của bảng.
+- Khi bảng chưa có idea, nút cuối bảng sẽ hiển thị “+ Thêm idea đầu tiên”.
+- Bảng giữ liền mạch, không còn khoảng hở lớn giữa các dòng.
+
+Cách upload:
+1. Giải nén file ZIP.
+2. Mở thư mục vừa giải nén.
+3. Chọn trực tiếp các mục src, public, package.json, netlify.toml... bên trong.
+4. Kéo các mục đó vào GitHub > Add file > Upload files.
+5. Không kéo cả thư mục cha lên GitHub.
+6. Commit: Keep one add-row button at table bottom
+7. Chờ Netlify Published rồi tải lại mạnh trình duyệt.

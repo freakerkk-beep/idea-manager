@@ -1,0 +1,11 @@
+HUONG DAN CAP NHAT LINK SAN PHAM DA LUU + LINK VIDEO
+
+1. Upload cac file trong patch len GitHub.
+2. Chay SQL trong Supabase:
+   supabase/migrate_saved_idea_link_columns.sql
+3. Netlify > Deploys > Trigger deploy > Clear cache and deploy site.
+
+Ghi chu:
+- Cot "Doi tuong KH" trong Idea da luu da duoc thay bang "Link SP da luu".
+- Da them cot "Link video".
+- Cac cot link deu co nut "Mo" de mo link 1 cham.
